@@ -74,6 +74,9 @@ export const AuthFormCard: React.FC<AuthFormCardProps> = ({
             authType: "credentials",
           })
         );
+        // Set auth cookie for Next.js middleware route protection
+        const maxAge = formData.rememberMe ? 2592000 : 86400;
+        document.cookie = `bizcontext_auth=true; path=/; max-age=${maxAge}; SameSite=Lax`;
       }
 
       if (mode === "login") {
@@ -90,7 +93,15 @@ export const AuthFormCard: React.FC<AuthFormCardProps> = ({
 
       setTimeout(() => {
         if (onClose) onClose();
-        router.push("/");
+        let target = "/dashboard";
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const from = params.get("from");
+          if (from && from.startsWith("/")) {
+            target = from;
+          }
+        }
+        router.push(target);
       }, 1000);
     }, 1000);
   };
