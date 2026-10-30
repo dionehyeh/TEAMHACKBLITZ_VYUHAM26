@@ -33,3 +33,20 @@ export const BrowserJobRequestSchema = z.object({
   targetUrl: z.string().url(),
   permissionLevel: z.enum(["B0", "B1", "B2", "B3", "B4"]).default("B1"),
 });
+
+// Auth (Section 9: /api/v1/auth)
+export const SignUpSchema = z.object({
+  email: z.string().email().max(254),
+  password: z.string().min(8).max(128),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().max(100).optional(),
+});
+
+export const LoginSchema = z.object({
+  email: z.string().email().max(254),
+  password: z.string().min(1).max(128),
+});
+
+export const RefreshTokenSchema = z.object({
+  refreshToken: z.string().min(1).max(2048),
+});
