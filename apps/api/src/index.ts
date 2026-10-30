@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import authRoutes from "./routes/auth";
+import organisationsRoutes from "./routes/organisations";
 
 const app = new Hono();
 const v1 = new Hono();
@@ -44,6 +45,7 @@ v1.get("/", (c) => {
 });
 
 v1.route("/auth", authRoutes);
+v1.route("/organisations", organisationsRoutes);
 
 app.route("/api/v1", v1);
 
