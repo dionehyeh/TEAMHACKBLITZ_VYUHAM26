@@ -1,15 +1,61 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+"""BizContext AI Engine - Service Entry Point.
+
+FastAPI service implementing the Pydantic AI Harness, Second Brain retrieval,
+backend tool execution, and real-time agent orchestration with Google Gemini.
+"""
+
+from contextlib import asynccontextmanager
+import logging
 import os
+from typing import Dict, Any
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+# Suppress banner in production logs if not set
+os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
+
+from app.api.routes import router as api_router
+from app.client.backend_client import backend_client_instance
+from app.config import settings
+
+# Configure logging
+logging.basicConfig(
+    level=settings.log_level.upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("ai_engine")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager for service startup and shutdown."""
+    logger.info("Starting BizContext AI Engine service...")
+    logger.info("Backend API target: %s", settings.backend_api_base_url)
+    logger.info("Configured Gemini model: %s", settings.effective_model_name)
+    logger.info("Gemini API key configured: %s", bool(settings.effective_gemini_api_key))
+
+    # Pre-initialize HTTP client
+    await backend_client_instance.get_client()
+
+    yield
+
+    # Cleanup connections on shutdown
+    logger.info("Shutting down BizContext AI Engine service...")
+    await backend_client_instance.close()
+
 
 app = FastAPI(
     title="BizContext AI Engine",
-    description="Python FastAPI service handling RAG, CV extraction, meeting action-item extraction, and agent orchestration.",
-    version="0.1.0",
+    description=(
+        "Pydantic AI Harness service for BizContext. "
+        "Orchestrates Gemini agents, Second Brain knowledge retrieval, and backend action tools."
+    ),
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,33 +64,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str
-    version: str
+# Register API routes
+app.include_router(api_router)
 
-@app.get("/health", response_model=HealthResponse)
-async def health_check():
-    return HealthResponse(
-        status="ok",
-        service="bizcontext-ai-engine",
-        version="0.1.0"
-    )
 
-@app.get("/")
-async def root():
+@app.get("/", tags=["Discovery"])
+async def root() -> Dict[str, Any]:
+    """Root endpoint declaring service capabilities and endpoints."""
     return {
-        "message": "BizContext AI Engine Operational",
+        "service": "bizcontext-ai-engine",
+        "description": "Pydantic AI Harness with Gemini for Business Second Brain",
+        "version": "0.2.0",
+        "endpoints": {
+            "agent_run": "/api/v1/agent/run",
+            "agent_stream": "/api/v1/agent/stream",
+            "agent_tools": "/api/v1/agent/tools",
+            "health": "/api/v1/health",
+        },
         "capabilities": [
-            "hybrid-retrieval",
-            "cv-parsing",
-            "meeting-minutes-extraction",
-            "agent-orchestration",
-            "embeddings"
-        ]
+            "pydantic-ai-harness",
+            "gemini-provider",
+            "second-brain-hybrid-retrieval",
+            "backend-tool-dispatch",
+            "action-execution-guardrails",
+            "source-grounded-citations",
+            "sse-streaming",
+        ],
     }
+
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("AI_ENGINE_PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+
+    port = int(os.getenv("AI_ENGINE_PORT", settings.ai_engine_port))
+    host = os.getenv("AI_ENGINE_HOST", settings.ai_engine_host)
+    uvicorn.run("app.main:app", host=host, port=port, reload=True)

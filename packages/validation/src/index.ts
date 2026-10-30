@@ -126,3 +126,15 @@ export const UpdateDocumentMetaSchema = z.object({
   description: z.string().max(1000).nullable().optional(),
   visibility: z.enum(["restricted", "internal"]).optional(),
 });
+
+// Employees (Section 8.1, 2.2, MVP)
+export const CreateEmployeeSchema = z.object({
+  organisationId: z.string().uuid(),
+  userId: z.string().uuid(),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().max(100),
+  workEmail: z.string().email().max(254),
+  departmentId: z.string().uuid().optional(),
+  designation: z.string().max(150).optional(),
+  employmentStatus: z.enum(["active", "invited", "suspended", "offboarded"]).default("active"),
+});
