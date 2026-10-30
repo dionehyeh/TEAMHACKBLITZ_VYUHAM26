@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["apps/**/*", "packages/**/*", "modules/**/*", "workers/**/*"],
+  "exclude": ["node_modules", "**/dist", "**/.next", "apps/ai-engine"]
+}

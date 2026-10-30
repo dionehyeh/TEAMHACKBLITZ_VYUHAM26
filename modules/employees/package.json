@@ -1,0 +1,17 @@
+{
+  "name": "@bizcontext/module-employees",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "oxlint src"
+  },
+  "dependencies": {
+    "@bizcontext/types": "workspace:*",
+    "@bizcontext/permissions": "workspace:*",
+    "@bizcontext/database": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

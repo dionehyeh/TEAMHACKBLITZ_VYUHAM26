@@ -1,0 +1,23 @@
+# API Specifications
+
+API routes follow RESTful conventions under `/api/v1/*`.
+
+## Endpoint Groups
+- `/api/v1/auth` - Authentication & sessions
+- `/api/v1/organisations` - Org hierarchy & management
+- `/api/v1/departments` - Department configuration
+- `/api/v1/employees` - Employee directory & CV processing
+- `/api/v1/employee-documents` - CVs, certificates, portfolios
+- `/api/v1/knowledge/pages` - Notion-like block pages
+- `/api/v1/files` - Asset storage & presigned URLs
+- `/api/v1/projects` - Projects & milestones
+- `/api/v1/tasks` - Task management & reviews
+- `/api/v1/tickets` - Internal ticketing & SLA
+- `/api/v1/meetings` - Meeting notes & action items
+- `/api/v1/notifications` - In-app alerts & preferences
+- `/api/v1/agents` - Agent registry & configuration
+- `/api/v1/agent-executions` - Agent invocation & logs
+- `/api/v1/browser-jobs` - Browser automation & approvals
+- `/api/v1/integrations` - Third-party connectors
+- `/api/v1/search` - Hybrid keyword + vector search
+- `/api/v1/analytics` - System & operational analytics
