@@ -59,10 +59,89 @@ export const CreateTaskSchema = z.object({
 });
 
 export const CreateTicketSchema = z.object({
-  title: z.string().min(1).max(255),
-  description: z.string().min(5),
-  category: z.enum(["it", "access", "infrastructure", "hr", "design", "dev", "finance", "general"]),
+  title: z.string().min(1, "Title is required").max(255),
+  description: z.string().min(1, "Description is required"),
+  category: z.enum([
+    "it",
+    "access",
+    "infrastructure",
+    "hr",
+    "design",
+    "dev",
+    "finance",
+    "general",
+  ]).default("general"),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  assigneeId: z.string().uuid().optional(),
+  departmentId: z.string().uuid().optional(),
+  slaTarget: z.string().optional(),
+});
+
+export const UpdateTicketSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().min(1).optional(),
+  category: z
+    .enum(["it", "access", "infrastructure", "hr", "design", "dev", "finance", "general"])
+    .optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
+  departmentId: z.string().uuid().nullable().optional(),
+  status: z
+    .enum([
+      "open",
+      "assigned",
+      "acknowledged",
+      "in_progress",
+      "waiting",
+      "resolved",
+      "closed",
+      "reopened",
+    ])
+    .optional(),
+  resolutionNotes: z.string().max(2000).nullable().optional(),
+});
+
+export const UpdateTicketStatusSchema = z.object({
+  status: z.enum([
+    "open",
+    "assigned",
+    "acknowledged",
+    "in_progress",
+    "waiting",
+    "resolved",
+    "closed",
+    "reopened",
+  ]),
+  resolutionNotes: z.string().max(2000).optional(),
+});
+
+export const AddTicketCommentSchema = z.object({
+  text: z.string().min(1, "Comment text is required").max(5000),
+  isInternal: z.boolean().default(false),
+});
+
+export const TicketQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  category: z
+    .enum(["it", "access", "infrastructure", "hr", "design", "dev", "finance", "general"])
+    .optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  status: z
+    .enum([
+      "open",
+      "assigned",
+      "acknowledged",
+      "in_progress",
+      "waiting",
+      "resolved",
+      "closed",
+      "reopened",
+    ])
+    .optional(),
+  assigneeId: z.string().uuid().optional(),
+  requesterId: z.string().uuid().optional(),
+  search: z.string().max(255).optional(),
 });
 
 export const BrowserJobRequestSchema = z.object({

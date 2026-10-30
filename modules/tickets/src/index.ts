@@ -8,3 +8,5 @@ export const MODULE_NAME = "tickets";
 export interface TicketsModuleConfig {
   enabled: boolean;
 }
+
+export * from "./service";

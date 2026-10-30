@@ -6,6 +6,7 @@ import departmentsRoutes from "./routes/departments";
 import employeesRoutes from "./routes/employees";
 import employeeDocumentsRoutes from "./routes/employee-documents";
 import filesRoutes from "./routes/files";
+import ticketsRoutes from "./routes/tickets";
 import { aiRouter } from "./routes/ai";
 
 const app = new Hono();
@@ -56,6 +57,7 @@ v1.route("/departments", departmentsRoutes);
 v1.route("/employees", employeesRoutes);
 v1.route("/employee-documents", employeeDocumentsRoutes);
 v1.route("/files", filesRoutes);
+v1.route("/tickets", ticketsRoutes);
 v1.route("/ai", aiRouter);
 
 app.route("/api/v1", v1);

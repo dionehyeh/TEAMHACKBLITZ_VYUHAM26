@@ -146,8 +146,36 @@ export interface Ticket extends BaseEntity {
     | "closed"
     | "reopened";
   requesterId: EntityId;
+  requesterName?: string;
   assigneeId?: EntityId;
+  assigneeName?: string;
+  departmentId?: EntityId | null;
   slaTarget?: string;
+  slaBreached?: boolean;
+  resolutionNotes?: string | null;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  comments?: TicketComment[];
+}
+
+export interface TicketComment {
+  id: EntityId;
+  ticketId: EntityId;
+  authorId: EntityId;
+  authorName: string;
+  avatar?: string | null;
+  text: string;
+  isInternal: boolean;
+  createdAt: string;
+}
+
+export interface TicketActivity {
+  id: EntityId;
+  ticketId: EntityId;
+  actorId: EntityId;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 export interface Meeting extends BaseEntity {

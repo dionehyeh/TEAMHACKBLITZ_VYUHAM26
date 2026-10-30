@@ -500,6 +500,20 @@ class ApiService {
   }
 
   public async updateTicketStatus(ticketId: string, status: Ticket["status"]): Promise<Ticket> {
+    const live = await this.request<Ticket>(`/tickets/${ticketId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+
+    if (live) {
+      const idx = this.tickets.findIndex((t) => t.id === ticketId);
+      if (idx !== -1) {
+        this.tickets[idx] = live;
+        this.saveStore("tickets", this.tickets);
+      }
+      return live;
+    }
+
     const idx = this.tickets.findIndex((t) => t.id === ticketId);
     if (idx !== -1) {
       this.tickets[idx] = {
@@ -514,6 +528,20 @@ class ApiService {
   }
 
   public async addTicketComment(ticketId: string, text: string): Promise<Ticket> {
+    const live = await this.request<Ticket>(`/tickets/${ticketId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+
+    if (live) {
+      const idx = this.tickets.findIndex((t) => t.id === ticketId);
+      if (idx !== -1) {
+        this.tickets[idx] = live;
+        this.saveStore("tickets", this.tickets);
+      }
+      return live;
+    }
+
     const idx = this.tickets.findIndex((t) => t.id === ticketId);
     if (idx !== -1) {
       const comments = this.tickets[idx].comments || [];
