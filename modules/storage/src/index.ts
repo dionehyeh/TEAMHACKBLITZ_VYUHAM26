@@ -8,3 +8,5 @@ export const MODULE_NAME = "storage";
 export interface StorageModuleConfig {
   enabled: boolean;
 }
+
+export * from "./files";

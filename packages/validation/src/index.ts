@@ -37,6 +37,9 @@ export const AddDepartmentMemberSchema = z.object({
   role: z.enum(["head", "member"]).default("member"),
 });
 
+// ---------------------------------------------------------------------------
+// Organisations & Projects
+// ---------------------------------------------------------------------------
 
 export const CreateOrganisationSchema = z.object({
   name: z.string().min(2).max(100),
@@ -72,7 +75,10 @@ export const BrowserJobRequestSchema = z.object({
   permissionLevel: z.enum(["B0", "B1", "B2", "B3", "B4"]).default("B1"),
 });
 
+// ---------------------------------------------------------------------------
 // Auth (Section 9: /api/v1/auth)
+// ---------------------------------------------------------------------------
+
 export const SignUpSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
@@ -127,7 +133,10 @@ export const UpdateDocumentMetaSchema = z.object({
   visibility: z.enum(["restricted", "internal"]).optional(),
 });
 
+// ---------------------------------------------------------------------------
 // Employees (Section 8.1, 2.2, MVP)
+// ---------------------------------------------------------------------------
+
 export const CreateEmployeeSchema = z.object({
   organisationId: z.string().uuid(),
   userId: z.string().uuid(),
@@ -139,11 +148,58 @@ export const CreateEmployeeSchema = z.object({
   employmentStatus: z.enum(["active", "invited", "suspended", "offboarded"]).default("active"),
 });
 
+// ---------------------------------------------------------------------------
 // Knowledge pages (Section 2.3, 8.2, MVP)
+// ---------------------------------------------------------------------------
+
 export const CreateKnowledgePageSchema = z.object({
   organisationId: z.string().uuid(),
   title: z.string().min(1).max(255),
   content: z.string().max(100000).optional(),
   parentId: z.string().uuid().optional(),
   visibility: z.enum(["public", "internal", "restricted"]).default("internal"),
+});
+
+// ---------------------------------------------------------------------------
+// Asset Storage Files (Section 2.4, 8.2, 9: /api/v1/files)
+// ---------------------------------------------------------------------------
+
+export const FileQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  projectId: z.string().uuid().optional(),
+  folderPath: z.string().optional(),
+  visibility: z.enum(["public", "internal", "restricted"]).optional(),
+  mimeType: z.string().optional(),
+  search: z.string().max(255).optional(),
+});
+
+export const InitiateFileUploadSchema = z.object({
+  filename: z.string().min(1, "Filename is required").max(500),
+  mimeType: z.string().min(1, "MIME type is required").max(100),
+  byteSize: z.number().int().min(0).max(104857600), // 100 MB max
+  visibility: z.enum(["public", "internal", "restricted"]).default("internal"),
+  projectId: z.string().uuid().optional(),
+  folderPath: z.string().default("/"),
+  tags: z.array(z.string().max(50)).default([]),
+  summary: z.string().max(2000).optional(),
+});
+
+export const ConfirmFileUploadSchema = z.object({
+  storagePath: z.string().min(1).optional(),
+});
+
+export const UpdateFileMetaSchema = z.object({
+  filename: z.string().min(1).max(500).optional(),
+  folderPath: z.string().optional(),
+  visibility: z.enum(["public", "internal", "restricted"]).optional(),
+  tags: z.array(z.string().max(50)).optional(),
+  summary: z.string().max(2000).nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+});
+
+export const CreateFilePermissionSchema = z.object({
+  granteeType: z.enum(["user", "role", "department"]),
+  granteeId: z.string().uuid(),
+  permission: z.enum(["view", "download", "edit", "admin"]),
 });

@@ -763,6 +763,18 @@ class ApiService {
   }
 
   public async uploadFile(filename: string, mimeType: string, byteSize: number): Promise<StoredFile> {
+    const live = await this.request<StoredFile>("/files", {
+      method: "POST",
+      body: JSON.stringify({ filename, mimeType, byteSize, visibility: "internal" }),
+    });
+
+    if (live) {
+      this.files = [live, ...this.files];
+      this.saveStore("files", this.files);
+      this.addAuditLog("Adhwaithas S.", "user", `Uploaded document "${filename}"`);
+      return live;
+    }
+
     const newFile: StoredFile = {
       id: `file-${Date.now()}`,
       organisationId: "org-1",
