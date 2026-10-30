@@ -19,14 +19,12 @@ import {
   Sparkles,
   Wifi,
   WifiOff,
-  Bell,
   Menu,
-  ChevronDown,
   Building2,
-  LogIn,
   LogOut,
 } from "lucide-react";
 import { api, ApiStatus } from "../../services/api";
+import type { StoredSession } from "../../services/http";
 import { ApiStatusModal } from "./ApiStatusModal";
 import { SecondBrainModal } from "./SecondBrainModal";
 
@@ -37,7 +35,9 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<StoredSession["user"] | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({
     isLive: false,
     endpoint: api.getBaseUrl(),
@@ -46,28 +46,41 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+  const isLandingPage = pathname === "/";
+  const isPublic = isAuthPage || isLandingPage;
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("bizcontext_user");
-        if (stored) {
-          setCurrentUser(JSON.parse(stored));
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
+    if (isPublic) return;
+    const session = api.getSession();
+    setCurrentUser(session?.user ?? null);
+    setRole(session?.role ?? null);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("bizcontext_user");
-      document.cookie = "bizcontext_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-    }
+    api
+      .getOrganisations()
+      .then((orgs) => {
+        const current = orgs.find((o) => o.id === session?.organisationId) ?? orgs[0];
+        setOrgName(current?.name ?? null);
+      })
+      .catch(() => setOrgName(null));
+  }, [isPublic]);
+
+  const handleLogout = async () => {
+    await api.logout();
     router.push("/login");
   };
+
+  const displayName = currentUser
+    ? `${currentUser.firstName} ${currentUser.lastName}`.trim() || currentUser.email.split("@")[0]
+    : "";
+  const initials = (displayName || "?")
+    .split(/\s+/)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   useEffect(() => {
     // Check initial API health
@@ -94,36 +107,33 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     {
       label: "WORKSPACE",
       items: [
-        { name: "Second Brain Hub", href: "/dashboard", icon: Brain },
-        { name: "Knowledge Base", href: "/knowledge", icon: BookOpen },
-        { name: "Projects & Kanban", href: "/projects", icon: FolderKanban },
-        { name: "Tickets & SLA", href: "/tickets", icon: TicketIcon },
-        { name: "Meetings & AI Minutes", href: "/meetings", icon: Video },
-        { name: "Channels & Chat", href: "/chat", icon: MessageSquare },
+        { name: "Home", href: "/dashboard", icon: Brain },
+        { name: "Knowledge", href: "/knowledge", icon: BookOpen },
+        { name: "Projects", href: "/projects", icon: FolderKanban },
+        { name: "Tickets", href: "/tickets", icon: TicketIcon },
+        { name: "Meetings", href: "/meetings", icon: Video },
+        { name: "Chat", href: "/chat", icon: MessageSquare },
       ],
     },
     {
-      label: "INTELLIGENCE & AUTOMATION",
+      label: "PEOPLE & AUTOMATION",
       items: [
-        { name: "People & CV Intelligence", href: "/directory", icon: Users },
-        { name: "Agent Registry", href: "/agents", icon: Bot },
-        { name: "Browser Automation", href: "/browser-jobs", icon: Globe, badge: "B0-B4" },
+        { name: "People", href: "/directory", icon: Users },
+        { name: "Agents", href: "/agents", icon: Bot },
+        { name: "Browser jobs", href: "/browser-jobs", icon: Globe },
       ],
     },
     {
       label: "SYSTEM",
       items: [
-        { name: "Asset Storage", href: "/storage", icon: HardDrive },
-        { name: "Analytics & SLA", href: "/analytics", icon: BarChart3 },
-        { name: "Org & API Settings", href: "/settings", icon: Settings },
+        { name: "Files", href: "/storage", icon: HardDrive },
+        { name: "Analytics", href: "/analytics", icon: BarChart3 },
+        { name: "Settings", href: "/settings", icon: Settings },
       ],
     },
   ];
 
-  const isAuthPage = pathname === "/login" || pathname === "/register";
-  const isLandingPage = pathname === "/";
-
-  if (isAuthPage || isLandingPage) {
+  if (isPublic) {
     return <main className="min-h-screen w-full bg-white text-[#262626]">{children}</main>;
   }
 
@@ -155,13 +165,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             </div>
             {isSidebarOpen && (
               <div className="truncate">
-                <h1 className="font-extrabold text-sm tracking-tight text-[#262626] flex items-center">
-                  BizContext{" "}
-                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#74D96F]/20 text-[#1F541D] font-bold border border-[#74D96F]/30">
-                    MINTO
-                  </span>
-                </h1>
-                <p className="text-[10px] text-[#666666] font-medium">Autonomous Workspace</p>
+                <h1 className="font-extrabold text-sm tracking-tight text-[#262626]">BizContext</h1>
               </div>
             )}
           </Link>
@@ -175,14 +179,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
 
         {/* Organisation Selector */}
-        {isSidebarOpen && (
+        {isSidebarOpen && orgName && (
           <div className="px-3 pt-3">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#EDEDED] border border-[#DEDEDE] text-xs">
-              <div className="flex items-center space-x-2 truncate">
-                <Building2 className="w-3.5 h-3.5 text-[#56BE51] shrink-0" />
-                <span className="truncate font-bold text-[#262626]">Vyuham Enterprises</span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-[#666666] shrink-0" />
+            <div className="flex items-center space-x-2 p-2.5 rounded-xl bg-[#F8F9FA] border border-[#EDEDED] text-xs">
+              <Building2 className="w-3.5 h-3.5 text-[#56BE51] shrink-0" />
+              <span className="truncate font-bold text-[#262626]">{orgName}</span>
             </div>
           </div>
         )}
@@ -221,11 +222,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                         />
                         {isSidebarOpen && <span>{item.name}</span>}
                       </div>
-                      {isSidebarOpen && item.badge && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#EDEDED] text-[#262626] font-bold border border-[#D0D0D0]">
-                          {item.badge}
-                        </span>
-                      )}
+
                     </Link>
                   );
                 })}
@@ -239,21 +236,19 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3 truncate">
               <div className="relative shrink-0">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-lg object-cover border border-[#BEBEBE]"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#74D96F] ring-2 ring-white" />
+                <div
+                  aria-hidden
+                  className="w-8 h-8 rounded-lg bg-[#74D96F]/25 text-[#1F541D] text-xs font-bold flex items-center justify-center border border-[#74D96F]/40"
+                >
+                  {initials}
+                </div>
               </div>
               {isSidebarOpen && (
                 <div className="truncate">
-                  <div className="text-xs font-bold text-[#262626] truncate">
-                    {currentUser?.email ? currentUser.email.split("@")[0] : "Adhwaithas S."}
-                  </div>
-                  <div className="text-[10px] text-[#666666] truncate font-medium">
-                    {currentUser?.role || "Chief Technology Officer"}
-                  </div>
+                  <div className="text-xs font-bold text-[#262626] truncate">{displayName}</div>
+                  {role && (
+                    <div className="text-[10px] text-[#666666] truncate font-medium capitalize">{role}</div>
+                  )}
                 </div>
               )}
             </div>
@@ -263,7 +258,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 type="button"
                 onClick={handleLogout}
                 className="p-1.5 rounded-lg text-[#666666] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                title="Sign out of workspace"
+                title="Sign out"
+                aria-label="Sign out"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -279,10 +275,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           {/* Ask Second Brain Search Bar Button */}
           <button
             onClick={() => setIsAiModalOpen(true)}
-            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] border border-[#D8D8D8] hover:border-[#BEBEBE] text-xs text-[#666666] hover:text-[#262626] transition w-72 md:w-96 shadow-xs group cursor-pointer"
+            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] border border-[#D8D8D8] hover:border-[#BEBEBE] text-xs text-[#666666] hover:text-[#262626] transition w-full max-w-sm shadow-xs group cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#56BE51] group-hover:scale-110 transition-transform" />
-            <span className="truncate">Ask Second Brain or search (Cmd+K)...</span>
+            <span className="truncate">Ask your second brain...</span>
             <kbd className="hidden sm:inline-block ml-auto text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-white text-[#262626] border border-[#BEBEBE]">
               ⌘K
             </kbd>
@@ -298,89 +294,20 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   ? "bg-[#74D96F]/15 border-[#56BE51]/35 text-[#1F541D] hover:bg-[#74D96F]/25"
                   : "bg-[#F09363]/15 border-[#F09363]/35 text-[#843209] hover:bg-[#F09363]/25"
               }`}
-              title="Click to view API Backend connection settings"
+              title="API connection status"
             >
               {apiStatus.isLive ? (
                 <>
-                  <Wifi className="w-3 h-3 text-[#56BE51] animate-pulse" />
-                  <span className="hidden md:inline font-mono">API: Connected (Live)</span>
-                  <span className="md:hidden font-mono">Live</span>
+                  <Wifi className="w-3 h-3 text-[#56BE51]" />
+                  <span className="hidden md:inline">Connected</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="w-3 h-3 text-[#ED6B2D]" />
-                  <span className="hidden md:inline font-mono">API: Demo Mode</span>
-                  <span className="md:hidden font-mono">Demo</span>
+                  <span className="hidden md:inline">Offline</span>
                 </>
               )}
             </button>
-
-            {/* Notifications Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="relative p-1.5 rounded-full text-[#666666] hover:text-[#262626] hover:bg-[#EDEDED] transition cursor-pointer"
-                aria-label="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#74D96F] animate-ping" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#74D96F]" />
-              </button>
-
-              {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-3xl border border-[#EDEDED] bg-white p-3.5 shadow-xl text-xs z-50 animate-in fade-in">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#EDEDED]">
-                    <span className="font-extrabold text-[#262626]">Alerts & Actions</span>
-                    <button 
-                      onClick={() => setIsNotificationsOpen(false)}
-                      className="text-[10px] text-[#56BE51] font-semibold hover:underline"
-                    >
-                      Mark all read
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    <Link
-                      href="/browser-jobs"
-                      onClick={() => setIsNotificationsOpen(false)}
-                      className="block p-2.5 rounded-2xl bg-[#F09363]/10 border border-[#F09363]/25 hover:bg-[#F09363]/15 transition"
-                    >
-                      <div className="font-bold text-[#843209]">Approval Required (B3 Agent)</div>
-                      <div className="text-[11px] text-[#666666] mt-0.5">
-                        Browser Worker #bjob-1 paused waiting for invoice export confirmation.
-                      </div>
-                    </Link>
-                    <Link
-                      href="/tickets"
-                      onClick={() => setIsNotificationsOpen(false)}
-                      className="block p-2.5 rounded-2xl bg-[#EDEDED] border border-[#DEDEDE] hover:bg-[#E2E2E2] transition"
-                    >
-                      <div className="font-bold text-[#262626]">Ticket Assigned: TICK-1042</div>
-                      <div className="text-[11px] text-[#666666] mt-0.5">
-                        Urgent CORS issue in MinIO storage. SLA target in 1h 45m.
-                      </div>
-                    </Link>
-                    <Link
-                      href="/meetings"
-                      onClick={() => setIsNotificationsOpen(false)}
-                      className="block p-2.5 rounded-2xl bg-[#EDEDED] border border-[#DEDEDE] hover:bg-[#E2E2E2] transition"
-                    >
-                      <div className="font-bold text-[#262626]">Meeting Summary Ready</div>
-                      <div className="text-[11px] text-[#666666] mt-0.5">
-                        AI extracted 3 new action items from Sprint 26 Governance sync.
-                      </div>
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Auth Link in Header */}
-            <Link
-              href="/login"
-              className="px-3.5 py-1.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] font-bold text-xs transition shadow-xs"
-            >
-              Auth
-            </Link>
           </div>
         </header>
 

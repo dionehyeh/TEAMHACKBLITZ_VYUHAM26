@@ -18,6 +18,7 @@ export default function ChatPage() {
   const [activeChannel, setActiveChannel] = useState<ChatChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function ChatPage() {
       const chs = await api.getChannels();
       setChannels(chs);
       if (chs.length > 0) {
-        setActiveChannel(chs[1] || chs[0]);
+        setActiveChannel(chs[0]);
       }
     }
     loadChannels();
@@ -48,13 +49,17 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeChannel) return;
+    if (!inputText.trim() || !activeChannel || isSending) return;
 
     const text = inputText;
     setInputText("");
-    await api.sendMessage(activeChannel.id, text);
-    const msgs = await api.getMessages(activeChannel.id);
-    setMessages(msgs);
+    setIsSending(true);
+    const pending = api.sendMessage(activeChannel.id, text);
+    // Show the user's own message immediately; the AI reply lands when the promise resolves.
+    setMessages(await api.getMessages(activeChannel.id));
+    await pending;
+    setMessages(await api.getMessages(activeChannel.id));
+    setIsSending(false);
   };
 
   return (
@@ -144,11 +149,12 @@ export default function ChatPage() {
                   <Bot className="w-4 h-4 text-[#262626]" />
                 </div>
               ) : (
-                <img
-                  src={m.senderAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                  alt={m.senderName}
-                  className="w-8 h-8 rounded-xl object-cover shrink-0 border border-[#BEBEBE]/40"
-                />
+                <div
+                  aria-hidden
+                  className="w-8 h-8 rounded-xl bg-[#EDEDED] text-[#262626] text-[11px] font-bold flex items-center justify-center shrink-0 border border-[#BEBEBE]/40"
+                >
+                  {m.senderName.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
+                </div>
               )}
 
               <div className="flex-1 min-w-0 space-y-1">
@@ -197,7 +203,8 @@ export default function ChatPage() {
             />
             <button
               type="submit"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isSending}
+              aria-label="Send message"
               className="p-1.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] transition disabled:opacity-40"
             >
               <Send className="w-3.5 h-3.5" />

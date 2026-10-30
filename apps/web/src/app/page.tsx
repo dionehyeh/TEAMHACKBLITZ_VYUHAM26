@@ -534,26 +534,6 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════════
-          TESTIMONIAL
-      ══════════════════════════════════════════ */}
-      <section className="py-24 px-6 max-w-[860px] mx-auto text-center">
-        <div className="rounded-[2.5rem] p-12 relative overflow-hidden" style={{ background: "#EDEDED" }}>
-          <div className="absolute top-0 right-0 w-56 h-56 rounded-full bg-[#74D96F0d] -translate-y-1/2 translate-x-1/2 blur-2xl" />
-          <div className="text-5xl font-black text-[#74D96F] mb-6 leading-none">&ldquo;</div>
-          <blockquote className="text-[1.3125rem] md:text-[1.5rem] font-bold text-[#1a1a1a] leading-snug tracking-tight mb-8">
-            BizContext AI reduced our sprint planning overhead by 60% and our agents handle the follow-ups we used to forget.
-          </blockquote>
-          <div className="flex items-center justify-center gap-3">
-            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80" className="w-10 h-10 rounded-full object-cover border-2 border-white" alt="CTO" />
-            <div className="text-left">
-              <div className="text-sm font-bold text-[#1a1a1a]">Arjun Mehta</div>
-              <div className="text-xs text-[#666]">CTO, Vyuham Enterprises</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
           FINAL CTA
       ══════════════════════════════════════════ */}
       <section className="py-24 px-6 bg-[#1a1a1a] relative overflow-hidden">
