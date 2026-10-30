@@ -218,6 +218,7 @@ class ApiService {
     return null;
   }
 
+<<<<<<< HEAD
   private actorName(): string {
     const user = sessionStore.get()?.user;
     if (!user) return "You";
@@ -279,6 +280,16 @@ class ApiService {
       // Token may already be expired; clear locally regardless.
     }
     sessionStore.clear();
+=======
+  /**
+   * Like request<T> but for endpoints that return { data: T }.
+   * Falls back to null on failure so callers can use local cache.
+   */
+  private async requestData<T>(path: string, options?: RequestInit): Promise<T | null> {
+    const json = await this.request<{ data: T }>(path, options);
+    if (json && "data" in json) return json.data;
+    return null;
+>>>>>>> 8ccac48 (feat: add kanban)
   }
 
   // --- Organisations & Departments ---
@@ -449,7 +460,7 @@ class ApiService {
 
   // --- Projects & Tasks ---
   public async getProjects(): Promise<Project[]> {
-    const live = await this.request<Project[]>("/projects");
+    const live = await this.requestData<Project[]>("/projects");
     return live || this.projects;
   }
 
@@ -471,7 +482,7 @@ class ApiService {
       dueDate: data.dueDate || "2026-11-30",
     };
 
-    const live = await this.request<Project>("/projects", {
+    const live = await this.requestData<Project>("/projects", {
       method: "POST",
       body: JSON.stringify(newProject),
     });
@@ -483,7 +494,7 @@ class ApiService {
   }
 
   public async getTasks(projectId?: string): Promise<Task[]> {
-    const live = await this.request<Task[]>(projectId ? `/tasks?projectId=${projectId}` : "/tasks");
+    const live = await this.requestData<Task[]>(projectId ? `/tasks?projectId=${projectId}` : "/tasks");
     const tasks = live || this.tasks;
     if (projectId) {
       return tasks.filter((t) => t.projectId === projectId);
@@ -512,7 +523,7 @@ class ApiService {
       subtasks: data.subtasks || [],
     };
 
-    const live = await this.request<Task>("/tasks", {
+    const live = await this.requestData<Task>("/tasks", {
       method: "POST",
       body: JSON.stringify(newTask),
     });
@@ -535,7 +546,7 @@ class ApiService {
       this.saveStore("tasks", this.tasks);
 
       // Async live sync attempt
-      this.request(`/tasks/${taskId}/status`, {
+      this.requestData<Task>(`/tasks/${taskId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
