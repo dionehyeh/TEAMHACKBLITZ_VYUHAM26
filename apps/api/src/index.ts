@@ -11,6 +11,7 @@ import ticketsRoutes from "./routes/tickets";
 import { aiRouter } from "./routes/ai";
 import projectsRoutes from "./routes/projects";
 import tasksRoutes from "./routes/tasks";
+import notificationsRoutes from "./routes/notifications";
 
 const app = new Hono();
 const v1 = new Hono();
@@ -66,6 +67,7 @@ v1.route("/tickets", ticketsRoutes);
 v1.route("/ai", aiRouter);
 v1.route("/projects", projectsRoutes);
 v1.route("/tasks", tasksRoutes);
+v1.route("/notifications", notificationsRoutes);
 
 app.route("/api/v1", v1);
 

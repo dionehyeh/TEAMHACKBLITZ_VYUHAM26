@@ -291,3 +291,54 @@ export interface AuditLog {
 
   createdAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// 8.6 Notifications & Preferences
+// ---------------------------------------------------------------------------
+
+export type NotificationCategory =
+  | "task"
+  | "ticket"
+  | "mention"
+  | "meeting"
+  | "approval"
+  | "system"
+  | "project"
+  | "document"
+  | "agent";
+
+export type NotificationPriority = "low" | "normal" | "high" | "urgent";
+
+export interface AppNotification {
+  id: EntityId;
+  organisationId: EntityId;
+  recipientId: EntityId;
+  actorId?: EntityId | null;
+  actorName?: string | null;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  linkUrl?: string | null;
+  resourceType?: string | null;
+  resourceId?: EntityId | null;
+  priority: NotificationPriority;
+  isRead: boolean;
+  readAt?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NotificationPreferences {
+  id: EntityId;
+  organisationId: EntityId;
+  userId: EntityId;
+  emailNotifications: boolean;
+  inAppNotifications: boolean;
+  taskAssigned: boolean;
+  ticketUpdates: boolean;
+  mentions: boolean;
+  approvalRequests: boolean;
+  systemAnnouncements: boolean;
+  dailyDigest: boolean;
+  updatedAt: string;
+}

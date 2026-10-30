@@ -290,3 +290,23 @@ This document provides the exact REST API specification consumed by the BizConte
   - Grants explicit permissions (`view`, `download`, `edit`, `admin`) to user, role, or department.
 - **`POST /files/:fileId/ocr`**
   - Triggers or stores extracted OCR text and document summary.
+
+---
+
+### 2.13 In-App Notifications & Preferences
+- **`GET /notifications`**
+  - Returns paginated notifications for current user with total `unreadCount`.
+- **`GET /notifications/unread-count`**
+  - Fast endpoint returning `{ "unreadCount": 3 }` for header badges.
+- **`PATCH /notifications/:id/read`**
+  - Marks a specific notification as read.
+- **`PATCH /notifications/read-all`**
+  - Marks all notifications as read for current user.
+- **`POST /notifications`**
+  - Dispatches an in-app alert respecting user delivery preferences.
+- **`DELETE /notifications/:id`**
+  - Soft-deletes or dismisses a notification.
+- **`GET /notifications/preferences`**
+  - Returns notification delivery channels and category toggles.
+- **`PUT /notifications/preferences`**
+  - Updates delivery channels (email, in-app) and category preferences.

@@ -127,7 +127,7 @@ export async function http<T>(
   const send = () => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...((options.headers as Record<string, string>) ?? {}),
+      ...(options.headers as Record<string, string>),
     };
     const session = sessionStore.get();
     if (auth && session) {

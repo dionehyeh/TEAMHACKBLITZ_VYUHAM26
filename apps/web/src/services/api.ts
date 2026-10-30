@@ -13,6 +13,8 @@ import {
   BrowserJob,
   StoredFile,
   AuditLogItem,
+  AppNotification,
+  NotificationPreferences,
 } from "../types";
 
 import {
@@ -218,7 +220,6 @@ class ApiService {
     return null;
   }
 
-<<<<<<< HEAD
   private actorName(): string {
     const user = sessionStore.get()?.user;
     if (!user) return "You";
@@ -280,7 +281,8 @@ class ApiService {
       // Token may already be expired; clear locally regardless.
     }
     sessionStore.clear();
-=======
+  }
+
   /**
    * Like request<T> but for endpoints that return { data: T }.
    * Falls back to null on failure so callers can use local cache.
@@ -289,7 +291,6 @@ class ApiService {
     const json = await this.request<{ data: T }>(path, options);
     if (json && "data" in json) return json.data;
     return null;
->>>>>>> 8ccac48 (feat: add kanban)
   }
 
   // --- Organisations & Departments ---
@@ -973,6 +974,39 @@ class ApiService {
         url: c.url,
       })),
     };
+  }
+
+  // --- Notifications & Preferences ---
+  public async getNotifications(): Promise<{ data: AppNotification[]; unreadCount: number }> {
+    const live = await this.request<{ data: AppNotification[]; unreadCount: number }>("/notifications");
+    if (live) return live;
+    return { data: [], unreadCount: 0 };
+  }
+
+  public async getUnreadNotificationsCount(): Promise<number> {
+    const res = await this.request<{ unreadCount: number }>("/notifications/unread-count");
+    return res?.unreadCount ?? 0;
+  }
+
+  public async markNotificationAsRead(id: string): Promise<void> {
+    await this.request(`/notifications/${id}/read`, { method: "PATCH" });
+  }
+
+  public async markAllNotificationsAsRead(): Promise<void> {
+    await this.request("/notifications/read-all", { method: "PATCH" });
+  }
+
+  public async getNotificationPreferences(): Promise<NotificationPreferences | null> {
+    return this.requestData<NotificationPreferences>("/notifications/preferences");
+  }
+
+  public async updateNotificationPreferences(
+    prefs: Partial<NotificationPreferences>
+  ): Promise<NotificationPreferences | null> {
+    return this.requestData<NotificationPreferences>("/notifications/preferences", {
+      method: "PUT",
+      body: JSON.stringify(prefs),
+    });
   }
 }
 

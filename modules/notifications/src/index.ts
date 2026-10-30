@@ -8,3 +8,5 @@ export const MODULE_NAME = "notifications";
 export interface NotificationsModuleConfig {
   enabled: boolean;
 }
+
+export * from "./service";

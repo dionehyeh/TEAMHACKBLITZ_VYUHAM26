@@ -282,3 +282,54 @@ export const CreateFilePermissionSchema = z.object({
   granteeId: z.string().uuid(),
   permission: z.enum(["view", "download", "edit", "admin"]),
 });
+
+// ---------------------------------------------------------------------------
+// Notifications & Preferences (Section 2.9, 8.3, 9: /api/v1/notifications)
+// ---------------------------------------------------------------------------
+
+export const NotificationCategoryEnum = z.enum([
+  "task",
+  "ticket",
+  "mention",
+  "meeting",
+  "approval",
+  "system",
+  "project",
+  "document",
+  "agent",
+]);
+
+export const NotificationPriorityEnum = z.enum(["low", "normal", "high", "urgent"]);
+
+export const NotificationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  isRead: z
+    .enum(["true", "false"])
+    .transform((val) => val === "true")
+    .optional(),
+  category: NotificationCategoryEnum.optional(),
+});
+
+export const CreateNotificationSchema = z.object({
+  recipientId: z.string().uuid("recipientId must be a valid UUID"),
+  category: NotificationCategoryEnum,
+  title: z.string().min(1, "Title is required").max(255),
+  body: z.string().min(1, "Body is required").max(5000),
+  linkUrl: z.string().max(1000).optional(),
+  resourceType: z.string().max(50).optional(),
+  resourceId: z.string().uuid().optional(),
+  priority: NotificationPriorityEnum.default("normal"),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const UpdateNotificationPreferencesSchema = z.object({
+  emailNotifications: z.boolean().optional(),
+  inAppNotifications: z.boolean().optional(),
+  taskAssigned: z.boolean().optional(),
+  ticketUpdates: z.boolean().optional(),
+  mentions: z.boolean().optional(),
+  approvalRequests: z.boolean().optional(),
+  systemAnnouncements: z.boolean().optional(),
+  dailyDigest: z.boolean().optional(),
+});
