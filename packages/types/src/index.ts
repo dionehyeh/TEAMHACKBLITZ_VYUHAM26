@@ -24,6 +24,33 @@ export interface Organisation {
   updatedAt: string;
 }
 
+/**
+ * Department — belongs to one Organisation, optionally nested under a parent department.
+ * Mapped to the `departments` table (Section 8.1).
+ */
+export interface Department {
+  id: EntityId;
+  organisationId: EntityId;
+  name: string;
+  description?: string | null;
+  /** The employee profile that leads / heads this department */
+  headId?: EntityId | null;
+  /** Enables sub-department nesting */
+  parentDepartmentId?: EntityId | null;
+  createdBy?: EntityId | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Lightweight member record linking an employee profile to a department */
+export interface DepartmentMember {
+  id: EntityId;
+  departmentId: EntityId;
+  employeeProfileId: EntityId;
+  role: "head" | "member";
+  addedAt: string;
+}
+
 export interface EmployeeProfile extends BaseEntity {
   userId: EntityId;
   firstName: string;
@@ -131,4 +158,80 @@ export interface BrowserJob extends BaseEntity {
     | "failed"
     | "cancelled";
   evidenceUrls: string[];
+}
+
+// ---------------------------------------------------------------------------
+// 8.5 Employee Documents
+// ---------------------------------------------------------------------------
+
+/**
+ * Represents a document attached to an employee profile.
+ * Actual file bytes live in Supabase Storage; this record holds metadata only.
+ * The storagePath must NEVER be exposed publicly — always use signed URLs.
+ */
+export interface EmployeeDocument extends BaseEntity {
+  employeeProfileId: EntityId;
+
+  /** Broad classification of the document's purpose */
+  documentType: "cv" | "certificate" | "portfolio" | "other";
+
+  title: string;
+  description?: string | null;
+
+  /** Supabase Storage object key — server-side only */
+  storagePath: string;
+
+  filename: string;
+  mimeType: string;
+
+  /** File size in bytes */
+  byteSize: number;
+
+  /** True once the client has finished uploading bytes to the signed URL */
+  isUploadConfirmed: boolean;
+
+  /** Reviewer-set status; starts as 'unverified' */
+  verificationStatus: "unverified" | "verified" | "rejected";
+
+  /** Auth user id of the person who verified/rejected the document */
+  verifiedBy?: EntityId | null;
+  verifiedAt?: string | null;
+
+  /** Lifecycle of the AI extraction pipeline */
+  extractionStatus: "pending" | "processing" | "completed" | "failed" | "skipped";
+
+  /**
+   * AI-extracted fields (e.g. parsed CV data).
+   * Always treated as unverified until an authorised reviewer confirms.
+   */
+  extractedData?: Record<string, unknown> | null;
+
+  /** Controls who inside the organisation can see this document */
+  visibility: "restricted" | "internal";
+}
+
+/**
+ * Immutable audit trail entry for sensitive document access events.
+ * Append-only — rows must never be updated or deleted.
+ */
+export interface AuditLog {
+  id: EntityId;
+  organisationId: EntityId;
+
+  /** Auth user id of the person performing the action */
+  actorId: EntityId;
+
+  /** Domain object being acted on, e.g. 'employee_document' */
+  resourceType: string;
+
+  /** Primary key of the affected resource */
+  resourceId: EntityId;
+
+  /** Action performed, e.g. 'view' | 'download' | 'verify' | 'delete' */
+  action: string;
+
+  /** Arbitrary extra context captured at the time of the event */
+  metadata?: Record<string, unknown> | null;
+
+  createdAt: string;
 }

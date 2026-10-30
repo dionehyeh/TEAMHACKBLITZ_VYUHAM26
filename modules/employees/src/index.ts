@@ -8,3 +8,5 @@ export const MODULE_NAME = "employees";
 export interface EmployeesModuleConfig {
   enabled: boolean;
 }
+
+export * from "./documents";

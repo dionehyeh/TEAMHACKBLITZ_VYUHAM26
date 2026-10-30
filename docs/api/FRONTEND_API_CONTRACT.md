@@ -213,3 +213,42 @@ This document provides the exact REST API specification consumed by the BizConte
       ]
     }
     ```
+
+---
+
+### 2.11 Employee Documents (CVs, Certificates, Portfolios)
+- **`GET /employee-documents`**
+  - Query params: `page`, `limit`, `employeeProfileId`, `documentType`, `verificationStatus`.
+  - Returns paginated list of employee documents scoped by caller's role (admins/owners see all org docs; members see own).
+- **`POST /employee-documents/upload-url`**
+  - Generates a short-lived presigned upload URL for direct Supabase Storage upload.
+  - **Payload**:
+    ```json
+    {
+      "employeeProfileId": "00000000-0000-0000-0000-000000000000",
+      "documentType": "cv",
+      "title": "Senior Engineer Resume 2026",
+      "description": "Updated resume highlighting Rust & Distributed Systems",
+      "filename": "candidate_resume.pdf",
+      "mimeType": "application/pdf",
+      "byteSize": 1048576,
+      "visibility": "restricted"
+    }
+    ```
+- **`POST /employee-documents/:documentId/confirm`**
+  - Marks document upload as completed and sets extraction status to `pending`.
+- **`GET /employee-documents/:documentId`**
+  - Returns metadata for a single document and creates an audit log entry (`view`).
+- **`GET /employee-documents/:documentId/download-url`**
+  - Generates a 5-minute signed download URL and creates an audit log entry (`download`).
+- **`PATCH /employee-documents/:documentId`**
+  - Updates title, description, or visibility (`restricted` | `internal`).
+- **`POST /employee-documents/:documentId/verify`**
+  - Reviewer verification / rejection action (restricted to admin, owner, or hr roles).
+  - **Payload**: `{ "status": "verified" | "rejected", "notes": "Optional notes" }`
+- **`POST /employee-documents/:documentId/extract`**
+  - Triggers or records AI extraction results for the document.
+- **`DELETE /employee-documents/:documentId`**
+  - Soft-deletes the document and creates an audit log entry (`delete`).
+- **`GET /employee-documents/employee/:employeeProfileId`**
+  - Lists documents belonging to a specific employee profile.

@@ -22,3 +22,20 @@ export function getSupabaseServiceClient(): SupabaseClient {
   }
   return serviceClient;
 }
+
+export function extractBearerToken(authHeader: string | undefined): string | null {
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+export async function resolveAuthUser(
+  token: string
+): Promise<{ userId: string | null; error: Error | null }> {
+  const supabase = getSupabaseAnonClient();
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    return { userId: null, error: error ?? new Error("User not found") };
+  }
+  return { userId: data.user.id, error: null };
+}

@@ -1,5 +1,43 @@
 import { z } from "zod";
 
+// ---------------------------------------------------------------------------
+// Departments (Section 9: /api/v1/departments)
+// ---------------------------------------------------------------------------
+
+export const CreateDepartmentSchema = z.object({
+  name: z.string().min(1, "Name is required").max(255, "Name must be 255 characters or fewer"),
+  description: z.string().max(1000).optional(),
+  headId: z.string().uuid("headId must be a valid UUID").optional(),
+  parentDepartmentId: z.string().uuid("parentDepartmentId must be a valid UUID").optional(),
+});
+
+export const UpdateDepartmentSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(255, "Name must be 255 characters or fewer")
+    .optional(),
+  description: z.string().max(1000).nullable().optional(),
+  headId: z.string().uuid("headId must be a valid UUID").nullable().optional(),
+  parentDepartmentId: z
+    .string()
+    .uuid("parentDepartmentId must be a valid UUID")
+    .nullable()
+    .optional(),
+});
+
+export const DepartmentQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().max(255).optional(),
+});
+
+export const AddDepartmentMemberSchema = z.object({
+  employeeProfileId: z.string().uuid("employeeProfileId must be a valid UUID"),
+  role: z.enum(["head", "member"]).default("member"),
+});
+
+
 export const CreateOrganisationSchema = z.object({
   name: z.string().min(2).max(100),
   slug: z
@@ -49,6 +87,44 @@ export const LoginSchema = z.object({
 
 export const RefreshTokenSchema = z.object({
   refreshToken: z.string().min(1).max(2048),
+});
+
+// ---------------------------------------------------------------------------
+// Employee Documents (Section 9: /api/v1/employee-documents)
+// ---------------------------------------------------------------------------
+
+export const EmployeeDocumentQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  employeeProfileId: z.string().uuid().optional(),
+  documentType: z.enum(["cv", "certificate", "portfolio", "other"]).optional(),
+  verificationStatus: z.enum(["unverified", "verified", "rejected"]).optional(),
+});
+
+export const InitiateUploadSchema = z.object({
+  employeeProfileId: z.string().uuid(),
+  documentType: z.enum(["cv", "certificate", "portfolio", "other"]),
+  title: z.string().min(1).max(255),
+  description: z.string().max(1000).optional(),
+  filename: z.string().min(1).max(500),
+  mimeType: z.string().min(1).max(100),
+  byteSize: z.number().int().min(1).max(52428800), // 50 MB max
+  visibility: z.enum(["restricted", "internal"]).default("restricted"),
+});
+
+export const ConfirmUploadSchema = z.object({
+  storagePath: z.string().min(1),
+});
+
+export const VerifyDocumentSchema = z.object({
+  status: z.enum(["verified", "rejected"]),
+  notes: z.string().max(1000).optional(),
+});
+
+export const UpdateDocumentMetaSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  visibility: z.enum(["restricted", "internal"]).optional(),
 });
 
 // Employees (Section 8.1, 2.2, MVP)
