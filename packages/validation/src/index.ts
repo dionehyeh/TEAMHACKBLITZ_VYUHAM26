@@ -62,3 +62,12 @@ export const CreateEmployeeSchema = z.object({
   designation: z.string().max(150).optional(),
   employmentStatus: z.enum(["active", "invited", "suspended", "offboarded"]).default("active"),
 });
+
+// Knowledge pages (Section 2.3, 8.2, MVP)
+export const CreateKnowledgePageSchema = z.object({
+  organisationId: z.string().uuid(),
+  title: z.string().min(1).max(255),
+  content: z.string().max(100000).optional(),
+  parentId: z.string().uuid().optional(),
+  visibility: z.enum(["public", "internal", "restricted"]).default("internal"),
+});
