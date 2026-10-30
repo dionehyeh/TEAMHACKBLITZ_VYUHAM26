@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import authRoutes from "./routes/auth";
 
 const app = new Hono();
+const v1 = new Hono();
 
 app.use("*", cors());
 
@@ -15,8 +17,6 @@ app.get("/health", (c) => {
 });
 
 // V1 API Router Entry Points (Section 9 of IMPLEMENTATION.md)
-const v1 = new Hono();
-
 v1.get("/", (c) => {
   return c.json({
     message: "BizContext AI API v1 Operational",
@@ -42,6 +42,8 @@ v1.get("/", (c) => {
     ],
   });
 });
+
+v1.route("/auth", authRoutes);
 
 app.route("/api/v1", v1);
 
