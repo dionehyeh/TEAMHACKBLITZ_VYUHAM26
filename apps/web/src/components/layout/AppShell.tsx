@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Brain,
   BookOpen,
@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Building2,
   LogIn,
+  LogOut,
 } from "lucide-react";
 import { api, ApiStatus } from "../../services/api";
 import { ApiStatusModal } from "./ApiStatusModal";
@@ -35,6 +36,8 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string } | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({
     isLive: false,
     endpoint: api.getBaseUrl(),
@@ -44,6 +47,27 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("bizcontext_user");
+        if (stored) {
+          setCurrentUser(JSON.parse(stored));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bizcontext_user");
+      document.cookie = "bizcontext_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    }
+    router.push("/login");
+  };
 
   useEffect(() => {
     // Check initial API health
@@ -70,7 +94,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     {
       label: "WORKSPACE",
       items: [
-        { name: "Second Brain Hub", href: "/", icon: Brain },
+        { name: "Second Brain Hub", href: "/dashboard", icon: Brain },
         { name: "Knowledge Base", href: "/knowledge", icon: BookOpen },
         { name: "Projects & Kanban", href: "/projects", icon: FolderKanban },
         { name: "Tickets & SLA", href: "/tickets", icon: TicketIcon },
@@ -97,8 +121,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   ];
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
+  const isLandingPage = pathname === "/";
 
-  if (isAuthPage) {
+  if (isAuthPage || isLandingPage) {
     return <main className="min-h-screen w-full bg-white text-[#262626]">{children}</main>;
   }
 
@@ -112,7 +137,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       >
         {/* Workspace Brand / Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-[#EDEDED]">
-          <Link href="/" className="flex items-center space-x-3 group">
+          <Link href="/dashboard" className="flex items-center space-x-3 group">
             {/* Minto Green Icon Badge */}
             <div className="w-8 h-8 rounded-xl bg-[#74D96F] flex items-center justify-center shadow-[0_2px_10px_rgba(116,217,111,0.35)] shrink-0 transition-transform group-hover:scale-105">
               <svg
@@ -216,27 +241,32 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               <div className="relative shrink-0">
                 <img
                   src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                  alt="Adhwaithas S."
+                  alt="User Avatar"
                   className="w-8 h-8 rounded-lg object-cover border border-[#BEBEBE]"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#74D96F] ring-2 ring-white" />
               </div>
               {isSidebarOpen && (
                 <div className="truncate">
-                  <div className="text-xs font-bold text-[#262626] truncate">Adhwaithas S.</div>
-                  <div className="text-[10px] text-[#666666] truncate font-medium">Chief Technology Officer</div>
+                  <div className="text-xs font-bold text-[#262626] truncate">
+                    {currentUser?.email ? currentUser.email.split("@")[0] : "Adhwaithas S."}
+                  </div>
+                  <div className="text-[10px] text-[#666666] truncate font-medium">
+                    {currentUser?.role || "Chief Technology Officer"}
+                  </div>
                 </div>
               )}
             </div>
 
             {isSidebarOpen && (
-              <Link
-                href="/login"
-                className="p-1.5 rounded-lg text-[#666666] hover:text-[#262626] hover:bg-[#EDEDED] transition cursor-pointer"
-                title="Switch account or sign in"
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-[#666666] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                title="Sign out of workspace"
               >
-                <LogIn className="w-3.5 h-3.5" />
-              </Link>
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
         </div>
