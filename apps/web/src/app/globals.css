@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Minto Design System Tokens */
+    --color-brand-primary: #74D96F;
+    --color-brand-primary-bright: #9DFF9B;
+    --color-brand-primary-deep: #56BE51;
+    --color-brand-coral: #F09363;
+    --color-brand-orange: #ED6B2D;
+    --color-brand-blue: #75A0C9;
+
+    --text-main: #262626;
+    --text-muted: #666666;
+    --text-subtle: #9E9E9E;
+
+    --border-hardware: #BEBEBE;
+    --border-subtle: #EDEDED;
+
+    --bg-canvas: #FFFFFF;
+    --bg-surface: #F8F9FA;
+    --bg-card: #EDEDED;
+    --bg-card-subtle: #F6F6F6;
+    --bg-display: #1F1F1F;
+  }
+
+  body {
+    background-color: #F8F9FA;
+    color: #262626;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+}
+
+/* Minto Tactile Buttons & Component Utilities */
+.btn-minto-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #74D96F;
+  color: #262626;
+  font-weight: 700;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 14px -2px rgba(116, 217, 111, 0.35);
+}
+
+.btn-minto-primary:hover {
+  background-color: #62CE5C;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px -4px rgba(116, 217, 111, 0.45);
+}
+
+.btn-minto-primary:active {
+  transform: translateY(1px);
+  background-color: #56BE51;
+}
+
+.btn-minto-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #EDEDED;
+  color: #262626;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid #DCDCDC;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-minto-secondary:hover {
+  background-color: #E2E2E2;
+  border-color: #BEBEBE;
+  transform: translateY(-1px);
+}
+
+.btn-minto-secondary:active {
+  transform: translateY(0);
+  background-color: #D6D6D6;
+}
+
+/* Minto Container Cards */
+.minto-card {
+  background-color: #EDEDED;
+  border: 1px solid #DEDEDE;
+  border-radius: 24px;
+}
+
+.minto-card-white {
+  background-color: #FFFFFF;
+  border: 1px solid #EDEDED;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EDEDED;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #BEBEBE;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9E9E9E;
+}
