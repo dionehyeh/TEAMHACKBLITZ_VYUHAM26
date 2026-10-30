@@ -26,7 +26,8 @@ export interface Department {
   name: string;
   leadId?: EntityId;
   leadName?: string;
-  memberCount: number;
+  description?: string;
+  memberCount?: number;
 }
 
 export interface SkillItem {

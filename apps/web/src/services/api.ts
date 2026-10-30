@@ -31,6 +31,8 @@ import {
   initialFiles,
   initialAuditLogs,
 } from "./mockData";
+import { http, ApiError, sessionStore, toStoredSession } from "./http";
+import type { AuthResponse, StoredSession } from "./http";
 
 export interface ApiStatus {
   isLive: boolean;
@@ -174,7 +176,9 @@ class ApiService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`${this.baseUrl}/health`, {
+      // /health lives at the server root, outside the /api/v1 prefix.
+      const root = this.baseUrl.replace(/\/api\/v\d+\/?$/, "").replace(/\/$/, "");
+      const res = await fetch(`${root}/health`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -194,6 +198,7 @@ class ApiService {
         ...options,
         headers: {
           "Content-Type": "application/json",
+          ...(sessionStore.get() ? { Authorization: `Bearer ${sessionStore.get()!.accessToken}` } : {}),
           ...options?.headers,
         },
         signal: controller.signal,
@@ -213,96 +218,178 @@ class ApiService {
     return null;
   }
 
+  private actorName(): string {
+    const user = sessionStore.get()?.user;
+    if (!user) return "You";
+    return `${user.firstName} ${user.lastName}`.trim() || user.email;
+  }
+
+  // --- Auth ---
+  public getSession(): StoredSession | null {
+    return sessionStore.get();
+  }
+
+  public async login(email: string, password: string, remember = true): Promise<StoredSession> {
+    const res = await http<AuthResponse>(this.baseUrl, "/auth/login", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({ email, password }),
+    });
+    return this.establishSession(res, remember);
+  }
+
+  public async signup(input: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+  }): Promise<StoredSession> {
+    const res = await http<AuthResponse>(this.baseUrl, "/auth/signup", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify(input),
+    });
+    return this.establishSession(res, true);
+  }
+
+  private async establishSession(res: AuthResponse, remember: boolean): Promise<StoredSession> {
+    let session = toStoredSession(res);
+    sessionStore.set(session, remember);
+    try {
+      const me = await http<{ organisationId: string | null; role: string | null }>(
+        this.baseUrl,
+        "/auth/me"
+      );
+      session = { ...session, organisationId: me.organisationId, role: me.role };
+      if (!session.organisationId) {
+        const orgs = await this.getOrganisations();
+        session.organisationId = orgs[0]?.id ?? null;
+      }
+      sessionStore.set(session, remember);
+    } catch {
+      // Session is valid even if the org lookup fails; pages surface their own errors.
+    }
+    return session;
+  }
+
+  public async logout(): Promise<void> {
+    try {
+      await http(this.baseUrl, "/auth/logout", { method: "POST" });
+    } catch {
+      // Token may already be expired; clear locally regardless.
+    }
+    sessionStore.clear();
+  }
+
   // --- Organisations & Departments ---
   public async getOrganisations(): Promise<Organisation[]> {
-    const live = await this.request<Organisation[]>("/organisations");
-    return live || this.organisations;
+    const res = await http<{ organisations: Organisation[] }>(this.baseUrl, "/organisations");
+    return res.organisations;
   }
 
   public async getDepartments(): Promise<Department[]> {
-    const live = await this.request<Department[]>("/departments");
-    return live || this.departments;
+    const res = await http<{
+      data: Array<{ id: string; name: string; description?: string | null; head_id?: string | null }>;
+    }>(this.baseUrl, "/departments?limit=100");
+    return res.data.map((d) => ({
+      id: d.id,
+      name: d.name,
+      description: d.description ?? undefined,
+      leadId: d.head_id ?? undefined,
+    }));
   }
 
-  // --- Employees & People Intelligence ---
-  public async getEmployees(): Promise<EmployeeProfile[]> {
-    const live = await this.request<EmployeeProfile[]>("/employees");
-    return live || this.employees;
+  public async createDepartment(name: string, description?: string): Promise<Department> {
+    const res = await http<{ data: { id: string; name: string; description?: string | null } }>(
+      this.baseUrl,
+      "/departments",
+      { method: "POST", body: JSON.stringify({ name, description: description || undefined }) }
+    );
+    return { id: res.data.id, name: res.data.name, description: res.data.description ?? undefined };
   }
 
-  public async getEmployee(id: string): Promise<EmployeeProfile | undefined> {
-    const live = await this.request<EmployeeProfile>(`/employees/${id}`);
-    if (live) return live;
-    return this.employees.find((e) => e.id === id);
-  }
-
-  public async parseCV(fileName: string, rawText?: string): Promise<{
-    name: string;
-    email: string;
-    skills: string[];
-    experienceYears: number;
-    education: string;
-    summary: string;
-  }> {
-    const live = await this.request<{
-      name: string;
-      email: string;
-      skills: string[];
-      experienceYears: number;
-      education: string;
-      summary: string;
-    }>("/employees/parse-cv", {
+  public async createOrganisation(name: string, slug: string): Promise<Organisation> {
+    const org = await http<Organisation>(this.baseUrl, "/organisations", {
       method: "POST",
-      body: JSON.stringify({ fileName, rawText }),
+      body: JSON.stringify({ name, slug }),
     });
-    if (live) return live;
+    const session = sessionStore.get();
+    if (session && !session.organisationId) {
+      sessionStore.set({ ...session, organisationId: org.id });
+    }
+    return org;
+  }
 
-    // Simulated high-fidelity CV extraction
+  // --- Employees ---
+  private toEmployee(
+    row: {
+      id: string;
+      organisationId: string | null;
+      userId: string | null;
+      firstName: string;
+      lastName: string;
+      workEmail: string;
+      departmentId: string | null;
+      designation: string | null;
+      skills: EmployeeProfile["skills"];
+      employmentStatus: EmployeeProfile["employmentStatus"];
+      createdAt: string;
+      updatedAt: string;
+    },
+    departments: Department[]
+  ): EmployeeProfile {
     return {
-      name: "Rohit Krishnan",
-      email: "rohit.k@example.com",
-      skills: ["Rust", "Distributed Systems", "Playwright Automation", "PostgreSQL", "Docker", "Python FastAPI"],
-      experienceYears: 5,
-      education: "B.Tech Computer Science & Engineering",
-      summary: "Senior Systems Engineer with 5+ years building containerized web automation pipelines, microservices, and RAG knowledge graphs.",
+      id: row.id,
+      organisationId: row.organisationId ?? "",
+      userId: row.userId ?? "",
+      createdBy: row.userId ?? "",
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      workEmail: row.workEmail,
+      designation: row.designation ?? undefined,
+      departmentId: row.departmentId ?? undefined,
+      departmentName: departments.find((d) => d.id === row.departmentId)?.name,
+      skills: row.skills ?? [],
+      employmentStatus: row.employmentStatus,
     };
   }
 
-  public async addEmployee(data: Partial<EmployeeProfile>): Promise<EmployeeProfile> {
-    const newEmp: EmployeeProfile = {
-      id: `emp-${Date.now()}`,
-      organisationId: "org-1",
-      userId: `usr-${Date.now()}`,
-      createdBy: "usr-admin",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      firstName: data.firstName || "New",
-      lastName: data.lastName || "Member",
-      workEmail: data.workEmail || "member@vyuham.ai",
-      designation: data.designation || "Engineer",
-      departmentId: data.departmentId || "dept-1",
-      departmentName: data.departmentName || "AI Engineering & Research",
-      avatarUrl: data.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
-      bio: data.bio || "Extracted from CV onboarding process.",
-      employmentStatus: "active",
-      skills: data.skills || [
-        { name: "Rust", proficiency: "expert", verified: true },
-        { name: "Playwright", proficiency: "intermediate", verified: true },
-      ],
-      currentProjects: ["BizContext Web Core V1"],
-      extractedFromCv: true,
-    };
+  public async getEmployees(): Promise<EmployeeProfile[]> {
+    const [res, departments] = await Promise.all([
+      http<{ employees: Parameters<ApiService["toEmployee"]>[0][] }>(this.baseUrl, "/employees"),
+      this.getDepartments().catch(() => [] as Department[]),
+    ]);
+    return res.employees.map((e) => this.toEmployee(e, departments));
+  }
 
-    const live = await this.request<EmployeeProfile>("/employees", {
+  public async addEmployee(data: {
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    designation?: string;
+    departmentId?: string;
+  }): Promise<EmployeeProfile> {
+    const session = sessionStore.get();
+    if (!session?.organisationId) {
+      throw new ApiError("Your account isn't linked to an organisation yet.", 400);
+    }
+    const row = await http<Parameters<ApiService["toEmployee"]>[0]>(this.baseUrl, "/employees", {
       method: "POST",
-      body: JSON.stringify(newEmp),
+      body: JSON.stringify({
+        organisationId: session.organisationId,
+        userId: session.user.id,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        workEmail: data.workEmail,
+        designation: data.designation || undefined,
+        departmentId: data.departmentId || undefined,
+        employmentStatus: "active",
+      }),
     });
-
-    const res = live || newEmp;
-    this.employees = [res, ...this.employees];
-    this.saveStore("employees", this.employees);
-    this.addAuditLog("Adhwaithas S.", "user", `Onboarded employee ${res.firstName} ${res.lastName} from verified CV`);
-    return res;
+    const departments = await this.getDepartments().catch(() => [] as Department[]);
+    return this.toEmployee(row, departments);
   }
 
   // --- Knowledge Workspace ---
@@ -330,7 +417,7 @@ class ApiService {
       summary: data.summary || "Newly created organizational knowledge document.",
       visibility: data.visibility || "internal",
       tags: data.tags || ["documentation"],
-      authorName: "Adhwaithas S.",
+      authorName: this.actorName(),
       viewsCount: 1,
     };
 
@@ -342,7 +429,7 @@ class ApiService {
     const res = live || newPage;
     this.knowledgePages = [res, ...this.knowledgePages];
     this.saveStore("knowledgePages", this.knowledgePages);
-    this.addAuditLog("Adhwaithas S.", "user", `Created knowledge page "${res.title}"`);
+    this.addAuditLog(this.actorName(), "user", `Created knowledge page "${res.title}"`);
     return res;
   }
 
@@ -377,7 +464,7 @@ class ApiService {
       description: data.description || "Project created in BizContext workspace.",
       status: data.status || "active",
       ownerId: "emp-1",
-      ownerName: "Adhwaithas S.",
+      ownerName: this.actorName(),
       progressPercent: 0,
       departmentName: data.departmentName || "AI Engineering & Research",
       tasksCount: { total: 0, done: 0 },
@@ -416,7 +503,7 @@ class ApiService {
       projectId: data.projectId || "proj-1",
       projectName: data.projectName || "BizContext Web Core V1",
       primaryAssigneeId: data.primaryAssigneeId || "emp-1",
-      assigneeName: data.assigneeName || "Adhwaithas S.",
+      assigneeName: data.assigneeName || this.actorName(),
       assigneeAvatar: data.assigneeAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
       collaboratorIds: data.collaboratorIds || [],
       priority: data.priority || "medium",
@@ -433,7 +520,7 @@ class ApiService {
     const res = live || newTask;
     this.tasks = [res, ...this.tasks];
     this.saveStore("tasks", this.tasks);
-    this.addAuditLog("Adhwaithas S.", "user", `Created task "${res.title}" assigned to ${res.assigneeName}`);
+    this.addAuditLog(this.actorName(), "user", `Created task "${res.title}" assigned to ${res.assigneeName}`);
     return res;
   }
 
@@ -479,7 +566,7 @@ class ApiService {
       priority: data.priority || "medium",
       status: "open",
       requesterId: "emp-1",
-      requesterName: "Adhwaithas S.",
+      requesterName: this.actorName(),
       assigneeId: data.assigneeId || "emp-3",
       assigneeName: data.assigneeName || "Marcus Vance",
       slaTarget: "In 24 hours",
@@ -495,7 +582,7 @@ class ApiService {
     const res = live || newTicket;
     this.tickets = [res, ...this.tickets];
     this.saveStore("tickets", this.tickets);
-    this.addAuditLog("Adhwaithas S.", "user", `Logged ticket ${res.ticketNumber}: "${res.title}"`);
+    this.addAuditLog(this.actorName(), "user", `Logged ticket ${res.ticketNumber}: "${res.title}"`);
     return res;
   }
 
@@ -547,7 +634,7 @@ class ApiService {
       const comments = this.tickets[idx].comments || [];
       comments.push({
         id: `c-${Date.now()}`,
-        author: "Adhwaithas S.",
+        author: this.actorName(),
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
         text,
         createdAt: new Date().toISOString(),
@@ -638,12 +725,13 @@ class ApiService {
   }
 
   public async sendMessage(channelId: string, content: string): Promise<ChatMessage> {
+    const user = sessionStore.get()?.user;
+    const senderName = user ? `${user.firstName} ${user.lastName}`.trim() || user.email : "You";
     const newMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       channelId,
-      senderId: "emp-1",
-      senderName: "Adhwaithas S.",
-      senderAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      senderId: user?.id ?? "me",
+      senderName,
       content,
       createdAt: new Date().toISOString(),
       reactions: [],
@@ -655,22 +743,29 @@ class ApiService {
     this.messages[channelId].push(newMsg);
     this.saveStore("messages", this.messages);
 
-    // If message mentions @BizContext or asks a question, generate an instant AI response!
-    if (content.toLowerCase().includes("@bizcontext") || content.toLowerCase().includes("?") || content.toLowerCase().includes("status")) {
-      setTimeout(() => {
-        const aiReply: ChatMessage = {
-          id: `msg-${Date.now() + 1}`,
-          channelId,
-          senderId: "ai-bot",
-          senderName: "BizContext Copilot",
-          isAi: true,
-          content: `🤖 **BizContext AI**: I indexed your query against company memory. All 3 active projects are currently within SLA thresholds, and the B3 Browser Worker is awaiting approval on invoice export.`,
-          createdAt: new Date().toISOString(),
-          reactions: [{ emoji: "⚡", count: 2, users: ["Adhwaithas"] }],
-        };
-        this.messages[channelId].push(aiReply);
-        this.saveStore("messages", this.messages);
-      }, 700);
+    // Only messages that mention @BizContext are routed to the AI engine.
+    if (content.toLowerCase().includes("@bizcontext")) {
+      const prompt = content.replace(/@bizcontext/gi, "").trim() || content;
+      const history = this.messages[channelId]
+        .slice(-9, -1)
+        .map((m) => ({ role: m.isAi ? ("assistant" as const) : ("user" as const), content: m.content }));
+      let reply: string;
+      try {
+        reply = (await this.askSecondBrain(prompt, history)).answer;
+      } catch (err) {
+        reply = `I couldn't reach the AI engine: ${err instanceof Error ? err.message : "unknown error"}`;
+      }
+      this.messages[channelId].push({
+        id: `msg-${Date.now() + 1}`,
+        channelId,
+        senderId: "ai-bot",
+        senderName: "BizContext Copilot",
+        isAi: true,
+        content: reply,
+        createdAt: new Date().toISOString(),
+        reactions: [],
+      });
+      this.saveStore("messages", this.messages);
     }
 
     return newMsg;
@@ -703,7 +798,7 @@ class ApiService {
 
     this.agents = [newAgent, ...this.agents];
     this.saveStore("agents", this.agents);
-    this.addAuditLog("Adhwaithas S.", "user", `Registered new agent "${newAgent.name}" with level ${newAgent.browserPermission}`);
+    this.addAuditLog(this.actorName(), "user", `Registered new agent "${newAgent.name}" with level ${newAgent.browserPermission}`);
     return newAgent;
   }
 
@@ -772,11 +867,11 @@ class ApiService {
           details: "Supervisor approval granted. Downloaded PDF invoice securely to storage/org-1.",
         });
         this.browserJobs[idx].outputSummary = "Approved by supervisor. Action completed successfully with full cryptographic audit trail.";
-        this.addAuditLog("Adhwaithas S.", "user", `APPROVED high-risk browser action for job #${jobId}`);
+        this.addAuditLog(this.actorName(), "user", `APPROVED high-risk browser action for job #${jobId}`);
       } else {
         this.browserJobs[idx].status = "cancelled";
         this.browserJobs[idx].outputSummary = "Job rejected by supervisor.";
-        this.addAuditLog("Adhwaithas S.", "user", `REJECTED browser action for job #${jobId}`);
+        this.addAuditLog(this.actorName(), "user", `REJECTED browser action for job #${jobId}`);
       }
       this.saveStore("browserJobs", this.browserJobs);
       return this.browserJobs[idx];
@@ -814,13 +909,13 @@ class ApiService {
       byteSize,
       storagePath: `org-1/uploads/${filename}`,
       visibility: "internal",
-      uploadedByName: "Adhwaithas S.",
+      uploadedByName: this.actorName(),
       downloadUrl: "#",
     };
 
     this.files = [newFile, ...this.files];
     this.saveStore("files", this.files);
-    this.addAuditLog("Adhwaithas S.", "user", `Uploaded document "${filename}"`);
+    this.addAuditLog(this.actorName(), "user", `Uploaded document "${filename}"`);
     return newFile;
   }
 
@@ -843,52 +938,29 @@ class ApiService {
     this.saveStore("auditLogs", this.auditLogs);
   }
 
-  // --- Second Brain Hybrid AI Search & Answer ---
-  public async askSecondBrain(query: string): Promise<{
+  // --- Second Brain (AI engine via API gateway) ---
+  public async askSecondBrain(
+    prompt: string,
+    chatHistory: Array<{ role: "user" | "assistant"; content: string }> = []
+  ): Promise<{
     answer: string;
-    sources: Array<{ title: string; category: string; matchConfidence: number; link: string }>;
-    suggestedActions: Array<{ label: string; actionType: string; payload?: unknown }>;
+    sources: Array<{ title: string; category: string; snippet?: string; url?: string }>;
   }> {
-    const q = query.toLowerCase();
-
-    // Contextual matching simulation against knowledge base, tickets, and projects
-    const sources = [
-      {
-        title: "Browser Agent Security Guidelines (B0-B4 Permission Matrix)",
-        category: "Security Policy",
-        matchConfidence: 96.4,
-        link: "/knowledge?page=page-2",
-      },
-      {
-        title: "Sprint 26 Architecture & AI Governance Sync Minutes",
-        category: "Meeting Minutes",
-        matchConfidence: 91.8,
-        link: "/meetings?id=meet-1",
-      },
-      {
-        title: "BizContext System Architecture & Unified Memory Model",
-        category: "Architecture Blueprint",
-        matchConfidence: 88.5,
-        link: "/knowledge?page=page-1",
-      },
-    ];
-
-    let answer = `According to organizational documents and recent architectural decisions:\n\n1. **Security & Browser Execution**: Autonomous Playwright agents operate under 5 distinct permission levels (B0 to B4). Form changes and financial/data downloads at level B3 and B4 strictly enforce human-in-the-loop approval before proceeding.\n2. **Retrieval Layer**: BizContext AI utilizes hybrid retrieval (pgvector semantic embeddings with HNSW indexing + BM25 keyword matching) to deliver low-latency (<600ms) answers with source citations.\n3. **Current Operations**: All 3 active sprint projects are currently tracked on schedule, and meeting minutes have been automatically parsed into actionable Kanban tasks.`;
-
-    if (q.includes("sla") || q.includes("ticket")) {
-      answer = `### SLA & Ticket Status Report\n- **Active Urgent Tickets**: TICK-1042 (*Production MinIO presigned URL CORS error*) is currently in progress under Marcus Vance, due within 1h 45m.\n- **SLA Target Compliance**: 98.4% of high and urgent requests are acknowledged within 15 minutes and resolved within the 4-hour SLA window.`;
-    } else if (q.includes("browser") || q.includes("approval") || q.includes("agent")) {
-      answer = `### Browser Agent Policy & Pending Actions\n- **Approval Drawer Alert**: Job \`#bjob-1\` (*AWS monthly invoice PDF export*) is currently paused at step 3, awaiting supervisor sign-off.\n- **Domain Restrictions**: Autonomous Playwright containers only permit egress to whitelisted domains (\`portal.aws.amazon.com\`, \`github.com\`, etc.) isolated in gVisor sandboxes.`;
-    }
-
+    const res = await http<{
+      response: string;
+      citations?: Array<{ title: string; source_type: string; snippet?: string; url?: string }>;
+    }>(this.baseUrl, "/ai/query", {
+      method: "POST",
+      body: JSON.stringify({ prompt, chatHistory: chatHistory.length ? chatHistory : undefined }),
+    });
     return {
-      answer,
-      sources,
-      suggestedActions: [
-        { label: "View Browser Approval Queue", actionType: "navigate", payload: "/browser-jobs" },
-        { label: "Inspect Architecture Doc", actionType: "navigate", payload: "/knowledge" },
-        { label: "Review Sprint Tasks", actionType: "navigate", payload: "/projects" },
-      ],
+      answer: res.response,
+      sources: (res.citations ?? []).map((c) => ({
+        title: c.title,
+        category: c.source_type,
+        snippet: c.snippet,
+        url: c.url,
+      })),
     };
   }
 }

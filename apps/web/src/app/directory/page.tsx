@@ -1,399 +1,366 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Users,
-  Search,
-  UploadCloud,
-  CheckCircle2,
-  Sparkles,
-  ShieldCheck,
-  Loader2,
-} from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Users, Search, UserPlus, Loader2, AlertCircle, X, ShieldCheck } from "lucide-react";
 import { api } from "../../services/api";
-import { EmployeeProfile } from "../../types";
+import { EmployeeProfile, Department } from "../../types";
+
+const fieldClass =
+  "w-full rounded-2xl border border-[#BEBEBE] bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#74D96F] focus:ring-2 focus:ring-[#74D96F]/20 transition";
+
+function Avatar({ emp, size = "w-11 h-11" }: { emp: EmployeeProfile; size?: string }) {
+  const initials = `${emp.firstName[0] ?? ""}${emp.lastName[0] ?? ""}`.toUpperCase() || "?";
+  return (
+    <div
+      aria-hidden
+      className={`${size} rounded-2xl bg-[#74D96F]/20 text-[#1F541D] font-bold text-sm flex items-center justify-center border border-[#74D96F]/30 shrink-0`}
+    >
+      {initials}
+    </div>
+  );
+}
 
 export default function DirectoryPage() {
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
 
-  // CV Parsing Modal state
-  const [isCvModalOpen, setIsCvModalOpen] = useState(false);
-  const cvFileName = "rohit_krishnan_cv.pdf";
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedData, setParsedData] = useState<{
-    name: string;
-    email: string;
-    skills: string[];
-    experienceYears: number;
-    education: string;
-    summary: string;
-  } | null>(null);
-
-  useEffect(() => {
-    async function fetchEmployees() {
-      const data = await api.getEmployees();
-      setEmployees(data);
-    }
-    fetchEmployees();
-  }, []);
-
-  const handleSimulateCvUpload = async () => {
-    setIsParsing(true);
-    try {
-      const result = await api.parseCV(cvFileName);
-      setParsedData(result);
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
-  const handleApproveOnboard = async () => {
-    if (!parsedData) return;
-    const [firstName, ...rest] = parsedData.name.split(" ");
-    const newEmp = await api.addEmployee({
-      firstName: firstName || "Rohit",
-      lastName: rest.join(" ") || "Krishnan",
-      workEmail: parsedData.email,
-      designation: "Systems & Automation Engineer",
-      departmentName: "AI Engineering & Research",
-      bio: parsedData.summary,
-      skills: parsedData.skills.map((s) => ({
-        name: s,
-        proficiency: "expert",
-        verified: true,
-      })),
-      education: [parsedData.education],
-    });
-
-    setEmployees([newEmp, ...employees]);
-    setIsCvModalOpen(false);
-    setParsedData(null);
-    setSelectedEmployee(newEmp);
-  };
-
-  const filtered = employees.filter((emp) => {
-    const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-    const matchesSearch =
-      fullName.includes(searchQuery.toLowerCase()) ||
-      emp.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.skills.some((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesDept = selectedDept === "all" || emp.departmentName === selectedDept;
-    return matchesSearch && matchesDept;
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    workEmail: "",
+    designation: "",
+    departmentId: "",
   });
 
-  return (
-    <div className="space-y-6">
-      {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#EDEDED]">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-[#262626] flex items-center space-x-2">
-            <Users className="w-6 h-6 text-[#74D96F]" />
-            <span>People Intelligence & Employee Directory</span>
-          </h1>
-          <p className="text-xs text-[#666666] mt-0.5">
-            Verified skills inventory, organizational reporting context, and AI CV extraction.
-          </p>
-        </div>
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [emps, depts] = await Promise.all([api.getEmployees(), api.getDepartments()]);
+      setEmployees(emps);
+      setDepartments(depts);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load people");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    load();
+  }, []);
+
+  const openForm = () => {
+    const user = api.getSession()?.user;
+    setForm({
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      workEmail: user?.email ?? "",
+      designation: "",
+      departmentId: "",
+    });
+    setFormError(null);
+    setIsFormOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setFormError(null);
+    try {
+      const created = await api.addEmployee({
+        ...form,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        workEmail: form.workEmail.trim(),
+      });
+      setEmployees((prev) => [created, ...prev]);
+      setIsFormOpen(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not save profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return employees.filter((emp) => {
+      const matchesSearch =
+        !q ||
+        `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q) ||
+        emp.designation?.toLowerCase().includes(q) ||
+        emp.workEmail.toLowerCase().includes(q) ||
+        emp.skills.some((s) => s.name.toLowerCase().includes(q));
+      const matchesDept = selectedDept === "all" || emp.departmentId === selectedDept;
+      return matchesSearch && matchesDept;
+    });
+  }, [employees, searchQuery, selectedDept]);
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#262626] flex items-center space-x-2">
+            <Users className="w-6 h-6 text-[#56BE51]" />
+            <span>People</span>
+          </h1>
+          <p className="text-sm text-[#666666] mt-0.5">Everyone in your organisation, with their role and skills.</p>
+        </div>
         <button
-          onClick={() => {
-            setIsCvModalOpen(true);
-            setParsedData(null);
-          }}
-          className="px-4 py-2 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold shadow-xs transition flex items-center space-x-1.5"
+          onClick={openForm}
+          className="px-4 py-2 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
         >
-          <UploadCloud className="w-4 h-4" />
-          <span>Upload & Parse CV (AI)</span>
+          <UserPlus className="w-4 h-4" />
+          <span>Add profile</span>
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-[#666666] absolute left-3.5 top-2.5" />
+          <Search className="w-4 h-4 text-[#666666] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
-            type="text"
+            type="search"
+            aria-label="Search people"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, role, or verified skill (e.g. 'pgvector', 'Playwright', 'DevOps')..."
-            className="w-full rounded-full border border-[#BEBEBE]/60 bg-white pl-10 pr-4 py-2 text-xs text-[#262626] placeholder-[#999999] focus:outline-none focus:border-[#74D96F] shadow-xs"
+            placeholder="Search by name, role, email or skill"
+            className="w-full rounded-full border border-[#BEBEBE]/60 bg-white pl-10 pr-4 py-2.5 text-sm placeholder-[#999999] focus:outline-none focus:border-[#74D96F]"
           />
         </div>
-
         <select
+          aria-label="Filter by department"
           value={selectedDept}
           onChange={(e) => setSelectedDept(e.target.value)}
-          className="rounded-full border border-[#BEBEBE]/60 bg-white px-4 py-2 text-xs text-[#262626] focus:outline-none focus:border-[#74D96F] shadow-xs"
+          className="rounded-full border border-[#BEBEBE]/60 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-[#74D96F]"
         >
-          <option value="all">All Departments</option>
-          <option value="AI Engineering & Research">AI Engineering & Research</option>
-          <option value="Infrastructure & Security">Infrastructure & Security</option>
-          <option value="Product & Design">Product & Design</option>
-          <option value="Enterprise Solutions">Enterprise Solutions</option>
+          <option value="all">All departments</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
         </select>
       </div>
 
-      {/* Employees Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((emp) => (
-          <div
-            key={emp.id}
-            onClick={() => setSelectedEmployee(emp)}
-            className="cursor-pointer rounded-3xl border border-[#BEBEBE]/40 bg-white p-5 hover:border-[#74D96F] hover:shadow-md transition space-y-3 group shadow-xs"
-          >
-            <div className="flex items-start space-x-3.5">
-              <img
-                src={emp.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                alt={emp.firstName}
-                className="w-12 h-12 rounded-2xl object-cover border border-[#BEBEBE]/40 shadow-xs"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-1.5">
-                  <h3 className="font-bold text-sm text-[#262626] group-hover:text-black transition truncate">
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+          <span className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{loadError}</span>
+          </span>
+          <button onClick={load} className="font-bold underline cursor-pointer">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 rounded-3xl bg-white border border-[#EDEDED] animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 && !loadError ? (
+        <div className="rounded-3xl border border-dashed border-[#BEBEBE] bg-white p-10 text-center space-y-2">
+          <p className="text-sm font-bold text-[#262626]">
+            {employees.length === 0 ? "No profiles yet" : "No one matches your search"}
+          </p>
+          <p className="text-xs text-[#666666]">
+            {employees.length === 0
+              ? "Add your profile to get your organisation's directory started."
+              : "Try a different name, skill, or department."}
+          </p>
+          {employees.length === 0 && (
+            <button onClick={openForm} className="mt-2 px-4 py-2 rounded-full bg-[#74D96F] text-xs font-bold cursor-pointer">
+              Add profile
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((emp) => (
+            <button
+              key={emp.id}
+              onClick={() => setSelectedEmployee(emp)}
+              className="text-left rounded-3xl border border-[#BEBEBE]/40 bg-white p-5 hover:border-[#74D96F] hover:shadow-md transition space-y-3 cursor-pointer"
+            >
+              <div className="flex items-start space-x-3.5">
+                <Avatar emp={emp} />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-sm text-[#262626] truncate">
                     {emp.firstName} {emp.lastName}
                   </h3>
-                  {emp.extractedFromCv && (
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#74D96F]/20 text-[#1F541D] font-bold border border-[#74D96F]/40">
-                      CV VERIFIED
+                  <p className="text-xs text-[#666666] truncate">{emp.designation || "No title set"}</p>
+                  <p className="text-[11px] text-[#9E9E9E] truncate">{emp.departmentName || "No department"}</p>
+                </div>
+              </div>
+              {emp.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-3 border-t border-[#EDEDED]">
+                  {emp.skills.slice(0, 3).map((s) => (
+                    <span key={s.name} className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#EDEDED] text-[#262626] font-medium">
+                      {s.name}
                     </span>
+                  ))}
+                  {emp.skills.length > 3 && (
+                    <span className="text-[10px] px-2 py-0.5 text-[#666666]">+{emp.skills.length - 3}</span>
                   )}
                 </div>
-                <p className="text-xs text-[#666666] truncate">{emp.designation}</p>
-                <p className="text-[11px] text-[#666666] truncate">{emp.departmentName}</p>
-              </div>
-            </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-            {emp.bio && (
-              <p className="text-xs text-[#666666] line-clamp-2 leading-relaxed">
-                {emp.bio}
-              </p>
-            )}
-
-            {/* Skills Badges */}
-            <div className="pt-2 border-t border-[#EDEDED]">
-              <div className="text-[10px] font-bold text-[#666666] uppercase tracking-wider mb-1.5">
-                Verified Skills
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {emp.skills.slice(0, 3).map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center space-x-1 text-[10px] px-2.5 py-0.5 rounded-full bg-[#EDEDED] border border-[#BEBEBE]/40 text-[#262626] font-medium"
-                  >
-                    <ShieldCheck className="w-3 h-3 text-[#74D96F]" />
-                    <span>{s.name}</span>
-                  </span>
-                ))}
-                {emp.skills.length > 3 && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EDEDED] text-[#666666] font-medium">
-                    +{emp.skills.length - 3}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Profile Detail Drawer / Modal */}
       {selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-xl rounded-3xl border border-[#BEBEBE]/40 bg-white p-6 shadow-2xl text-[#262626] space-y-5 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between pb-4 border-b border-[#EDEDED]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+          onMouseDown={(e) => e.target === e.currentTarget && setSelectedEmployee(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl text-[#262626] space-y-5 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between">
               <div className="flex items-center space-x-4">
-                <img
-                  src={selectedEmployee.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                  alt={selectedEmployee.firstName}
-                  className="w-14 h-14 rounded-2xl object-cover border border-[#BEBEBE]/40 shadow-xs"
-                />
+                <Avatar emp={selectedEmployee} size="w-14 h-14" />
                 <div>
-                  <h3 className="text-lg font-bold text-[#262626]">
+                  <h3 className="text-lg font-bold">
                     {selectedEmployee.firstName} {selectedEmployee.lastName}
                   </h3>
-                  <p className="text-xs text-[#262626] font-bold">{selectedEmployee.designation}</p>
-                  <p className="text-xs text-[#666666]">{selectedEmployee.departmentName}</p>
+                  <p className="text-xs text-[#666666]">{selectedEmployee.designation || "No title set"}</p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedEmployee(null)}
-                className="text-[#666666] hover:text-[#262626] p-1 rounded-lg"
+                aria-label="Close"
+                className="p-1.5 rounded-full text-[#666666] hover:bg-[#EDEDED] cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            <dl className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="font-bold text-[#666666] uppercase tracking-wider block mb-1">
-                  Professional Bio
-                </span>
-                <p className="text-[#262626] leading-relaxed bg-[#F8F9FA] p-3.5 rounded-2xl border border-[#EDEDED]">
-                  {selectedEmployee.bio || "No biography provided."}
-                </p>
+                <dt className="text-[#9E9E9E]">Email</dt>
+                <dd className="font-medium break-all">{selectedEmployee.workEmail}</dd>
               </div>
-
               <div>
-                <span className="font-bold text-[#666666] uppercase tracking-wider block mb-1.5">
-                  Verified Skills Matrix
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedEmployee.skills.map((sk, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F9FA] border border-[#EDEDED]"
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-[#74D96F]" />
-                        <span className="text-[#262626] font-semibold">{sk.name}</span>
-                      </div>
-                      <span className="text-[10px] text-[#666666] capitalize font-medium">{sk.proficiency}</span>
-                    </div>
+                <dt className="text-[#9E9E9E]">Department</dt>
+                <dd className="font-medium">{selectedEmployee.departmentName || "–"}</dd>
+              </div>
+              <div>
+                <dt className="text-[#9E9E9E]">Status</dt>
+                <dd className="font-medium capitalize">{selectedEmployee.employmentStatus}</dd>
+              </div>
+            </dl>
+
+            <div>
+              <div className="text-[11px] font-bold text-[#666666] uppercase tracking-wider mb-2">Skills</div>
+              {selectedEmployee.skills.length === 0 ? (
+                <p className="text-xs text-[#666666]">No skills recorded yet.</p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-2">
+                  {selectedEmployee.skills.map((sk) => (
+                    <li key={sk.name} className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F9FA] border border-[#EDEDED] text-xs">
+                      <span className="flex items-center space-x-1.5 font-semibold">
+                        {sk.verified && <ShieldCheck className="w-3.5 h-3.5 text-[#56BE51]" />}
+                        <span>{sk.name}</span>
+                      </span>
+                      <span className="text-[10px] text-[#666666] capitalize">{sk.proficiency}</span>
+                    </li>
                   ))}
-                </div>
-              </div>
-
-              {selectedEmployee.currentProjects && (
-                <div>
-                  <span className="font-bold text-[#666666] uppercase tracking-wider block mb-1">
-                    Current Assigned Projects
-                  </span>
-                  <div className="space-y-1">
-                    {selectedEmployee.currentProjects.map((p, idx) => (
-                      <div key={idx} className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#EDEDED] text-[#262626] font-medium">
-                        {p}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </ul>
               )}
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSelectedEmployee(null)}
-                className="px-5 py-2 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-[#262626] text-xs font-semibold transition"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal: CV AI Parsing & Onboarding Studio */}
-      {isCvModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-[#BEBEBE]/40 bg-white p-6 shadow-2xl text-[#262626] space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#EDEDED]">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-4 h-4 text-[#74D96F]" />
-                <h3 className="font-bold text-sm text-[#262626]">AI CV Extraction & Onboarding</h3>
-              </div>
+      {isFormOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+          onMouseDown={(e) => e.target === e.currentTarget && !isSaving && setIsFormOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add profile"
+        >
+          <form onSubmit={handleSave} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl text-[#262626] space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-base">Add your profile</h3>
               <button
-                onClick={() => setIsCvModalOpen(false)}
-                className="text-[#666666] hover:text-[#262626]"
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                aria-label="Close"
+                className="p-1.5 rounded-full text-[#666666] hover:bg-[#EDEDED] cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {!parsedData ? (
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-[#BEBEBE] rounded-3xl p-6 text-center space-y-2 bg-[#F8F9FA]">
-                  <UploadCloud className="w-10 h-10 text-[#74D96F] mx-auto" />
-                  <div className="text-xs font-bold text-[#262626]">
-                    Upload Candidate CV Document
-                  </div>
-                  <p className="text-[11px] text-[#666666]">
-                    Supports PDF, DOCX, and TXT. Multi-modal AI parser extracts objective verified skills without subjective bias.
-                  </p>
-                  <div className="pt-2">
-                    <span className="text-xs font-mono px-3 py-1 rounded-full bg-[#EDEDED] text-[#262626] border border-[#BEBEBE]/40 inline-block">
-                      {cvFileName}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleSimulateCvUpload}
-                  disabled={isParsing}
-                  className="w-full py-2.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold shadow-xs transition flex items-center justify-center space-x-2 disabled:opacity-50"
-                >
-                  {isParsing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Parsing CV and extracting skills...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Run AI Parser & Verify Candidate</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4 text-xs animate-in fade-in">
-                <div className="rounded-2xl border border-[#74D96F]/40 bg-[#74D96F]/10 p-4 space-y-2">
-                  <div className="flex items-center space-x-2 text-[#1F541D] font-bold">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Candidate Information Extracted</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[#262626]">
-                    <div>
-                      <span className="text-[10px] text-[#666666] block">Candidate Name</span>
-                      <strong className="text-[#262626]">{parsedData.name}</strong>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#666666] block">Email</span>
-                      <span className="text-[#262626]">{parsedData.email}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#666666] block">Experience</span>
-                      <span className="text-[#262626]">{parsedData.experienceYears} Years</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#666666] block">Education</span>
-                      <span className="text-[#262626]">{parsedData.education}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-bold text-[#666666] block mb-1">Extracted Technical Skills</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {parsedData.skills.map((s, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#EDEDED] text-[#262626] border border-[#BEBEBE]/40 font-medium"
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-3 border-t border-[#EDEDED]">
-                  <button
-                    onClick={() => setParsedData(null)}
-                    className="px-4 py-2 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-xs text-[#262626] font-semibold transition"
-                  >
-                    Re-upload
-                  </button>
-                  <button
-                    onClick={handleApproveOnboard}
-                    className="px-5 py-2 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-xs text-[#262626] font-bold shadow-sm transition"
-                  >
-                    Confirm & Onboard to Directory
-                  </button>
-                </div>
+            {formError && (
+              <div role="alert" className="flex items-start space-x-2 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
               </div>
             )}
-          </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-semibold space-y-1">
+                <span>First name</span>
+                <input required className={fieldClass} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+              </label>
+              <label className="text-xs font-semibold space-y-1">
+                <span>Last name</span>
+                <input className={fieldClass} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+              </label>
+            </div>
+            <label className="block text-xs font-semibold space-y-1">
+              <span>Work email</span>
+              <input required type="email" className={fieldClass} value={form.workEmail} onChange={(e) => setForm({ ...form, workEmail: e.target.value })} />
+            </label>
+            <label className="block text-xs font-semibold space-y-1">
+              <span>Job title</span>
+              <input className={fieldClass} value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+            </label>
+            <label className="block text-xs font-semibold space-y-1">
+              <span>Department</span>
+              <select className={fieldClass} value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+                <option value="">None</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="px-4 py-2 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-5 py-2 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-xs font-bold disabled:opacity-60 flex items-center space-x-1.5 cursor-pointer"
+              >
+                {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isSaving ? "Saving..." : "Save profile"}</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

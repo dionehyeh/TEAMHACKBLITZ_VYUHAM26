@@ -36,9 +36,9 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
     const isLive = await api.checkApiHealth();
     setIsChecking(false);
     if (isLive) {
-      setTestResult("Success: Connected to live API backend gateway!");
+      setTestResult("Success: connected to the API.");
     } else {
-      setTestResult("Notice: Backend server offline or endpoint unreachable. Running in high-fidelity interactive Seed Store mode.");
+      setTestResult("Could not reach the API at this address. Check the URL and that the server is running.");
     }
   };
 
@@ -52,8 +52,8 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
               <Server className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-[#262626] tracking-tight">API Backend Connection</h3>
-              <p className="text-xs text-[#666666]">BizContext Minto Service Gateway & State Bridge</p>
+              <h3 className="text-lg font-extrabold text-[#262626] tracking-tight">API connection</h3>
+              <p className="text-xs text-[#666666]">Where the app sends its requests</p>
             </div>
           </div>
           <button
@@ -67,25 +67,25 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl p-4 bg-white border border-[#BEBEBE] shadow-xs">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-[#666666] uppercase tracking-wider">Gateway Telemetry</span>
+              <span className="text-[11px] font-bold text-[#666666] uppercase tracking-wider">Status</span>
               <span className={`inline-flex items-center text-xs px-3 py-1 rounded-full font-bold ${
                 status.isLive ? "bg-[#74D96F]/20 text-[#1F541D] border border-[#56BE51]/40" : "bg-[#F09363]/20 text-[#843209] border border-[#F09363]/40"
               }`}>
                 {status.isLive ? (
                   <>
-                    <Wifi className="w-3.5 h-3.5 mr-1 text-[#56BE51] animate-pulse" /> Live Backend Connected
+                    <Wifi className="w-3.5 h-3.5 mr-1 text-[#56BE51]" /> Connected
                   </>
                 ) : (
                   <>
-                    <WifiOff className="w-3.5 h-3.5 mr-1 text-[#ED6B2D]" /> Interactive Seed Mode
+                    <WifiOff className="w-3.5 h-3.5 mr-1 text-[#ED6B2D]" /> Offline
                   </>
                 )}
               </span>
             </div>
             <p className="text-xs text-[#666666] leading-relaxed">
               {status.isLive
-                ? "The frontend is actively communicating with the live Hono API server running in the monorepo."
-                : "The backend API is running in zero-latency interactive seed mode. All actions (tasks, tickets, meetings, documents) persist reliably."}
+                ? "The app is talking to the API server."
+                : "The API server can't be reached. Sign-in, people, departments and AI answers need it."}
             </p>
           </div>
 
@@ -107,7 +107,7 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
                 className="inline-flex items-center px-5 py-2.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold transition shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isChecking ? "animate-spin" : ""}`} />
-                Test Ping
+                Test connection
               </button>
             </div>
             <p className="text-[11px] text-[#666666] mt-1 font-mono">Default: http://localhost:3001/api/v1</p>
@@ -117,7 +117,7 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
             <div className={`p-3 rounded-2xl text-xs flex items-start space-x-2 border ${
               testResult.startsWith("Success")
                 ? "bg-[#74D96F]/20 border-[#56BE51]/40 text-[#1F541D]"
-                : "bg-blue-50 border-blue-200 text-[#2F5885]"
+                : "bg-rose-50 border-rose-200 text-rose-700"
             }`}>
               <span>{testResult}</span>
             </div>
@@ -129,7 +129,7 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
             onClick={onClose}
             className="px-6 py-2 rounded-full bg-[#262626] hover:bg-black text-white text-xs font-bold transition shadow-xs cursor-pointer"
           >
-            Close Settings
+            Close
           </button>
         </div>
       </div>

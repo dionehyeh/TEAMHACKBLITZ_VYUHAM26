@@ -37,6 +37,9 @@ export const AddDepartmentMemberSchema = z.object({
   role: z.enum(["head", "member"]).default("member"),
 });
 
+// ---------------------------------------------------------------------------
+// Organisations & Projects
+// ---------------------------------------------------------------------------
 
 export const CreateOrganisationSchema = z.object({
   name: z.string().min(2).max(100),
@@ -151,7 +154,10 @@ export const BrowserJobRequestSchema = z.object({
   permissionLevel: z.enum(["B0", "B1", "B2", "B3", "B4"]).default("B1"),
 });
 
+// ---------------------------------------------------------------------------
 // Auth (Section 9: /api/v1/auth)
+// ---------------------------------------------------------------------------
+
 export const SignUpSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
@@ -206,7 +212,10 @@ export const UpdateDocumentMetaSchema = z.object({
   visibility: z.enum(["restricted", "internal"]).optional(),
 });
 
+// ---------------------------------------------------------------------------
 // Employees (Section 8.1, 2.2, MVP)
+// ---------------------------------------------------------------------------
+
 export const CreateEmployeeSchema = z.object({
   organisationId: z.string().uuid(),
   userId: z.string().uuid(),
@@ -216,6 +225,18 @@ export const CreateEmployeeSchema = z.object({
   departmentId: z.string().uuid().optional(),
   designation: z.string().max(150).optional(),
   employmentStatus: z.enum(["active", "invited", "suspended", "offboarded"]).default("active"),
+});
+
+// ---------------------------------------------------------------------------
+// Knowledge pages (Section 2.3, 8.2, MVP)
+// ---------------------------------------------------------------------------
+
+export const CreateKnowledgePageSchema = z.object({
+  organisationId: z.string().uuid(),
+  title: z.string().min(1).max(255),
+  content: z.string().max(100000).optional(),
+  parentId: z.string().uuid().optional(),
+  visibility: z.enum(["public", "internal", "restricted"]).default("internal"),
 });
 
 // ---------------------------------------------------------------------------
