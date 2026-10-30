@@ -4,11 +4,9 @@ import authRoutes from "./routes/auth";
 import organisationsRoutes from "./routes/organisations";
 import departmentsRoutes from "./routes/departments";
 import employeesRoutes from "./routes/employees";
-<<<<<<< HEAD
 import knowledgeRoutes from "./routes/knowledge";
-=======
 import employeeDocumentsRoutes from "./routes/employee-documents";
->>>>>>> e70e8c2fd37be871acb561d2d02cf91a420bbd63
+import { aiRouter } from "./routes/ai";
 
 const app = new Hono();
 const v1 = new Hono();
@@ -30,6 +28,7 @@ v1.get("/", (c) => {
     message: "BizContext AI API v1 Operational",
     endpoints: [
       "/api/v1/auth",
+      "/api/v1/ai",
       "/api/v1/organisations",
       "/api/v1/departments",
       "/api/v1/employees",
@@ -55,11 +54,9 @@ v1.route("/auth", authRoutes);
 v1.route("/organisations", organisationsRoutes);
 v1.route("/departments", departmentsRoutes);
 v1.route("/employees", employeesRoutes);
-<<<<<<< HEAD
 v1.route("/knowledge", knowledgeRoutes);
-=======
 v1.route("/employee-documents", employeeDocumentsRoutes);
->>>>>>> e70e8c2fd37be871acb561d2d02cf91a420bbd63
+v1.route("/ai", aiRouter);
 
 app.route("/api/v1", v1);
 
