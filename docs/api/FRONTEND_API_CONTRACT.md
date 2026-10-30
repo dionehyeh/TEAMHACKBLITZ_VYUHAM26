@@ -252,3 +252,41 @@ This document provides the exact REST API specification consumed by the BizConte
   - Soft-deletes the document and creates an audit log entry (`delete`).
 - **`GET /employee-documents/employee/:employeeProfileId`**
   - Lists documents belonging to a specific employee profile.
+
+---
+
+### 2.12 Asset Storage & Files
+- **`GET /files`**
+  - Query params: `page`, `limit`, `projectId`, `folderPath`, `visibility`, `mimeType`, `search`.
+  - Returns array of `StoredFile` objects, filtered by user visibility and permissions.
+- **`POST /files/upload-url`**
+  - Generates a short-lived presigned upload URL for direct Supabase Storage upload.
+  - **Payload**:
+    ```json
+    {
+      "filename": "document.pdf",
+      "mimeType": "application/pdf",
+      "byteSize": 1048576,
+      "visibility": "internal",
+      "folderPath": "/engineering",
+      "tags": ["spec"]
+    }
+    ```
+- **`POST /files`**
+  - Registers a file asset directly with metadata.
+- **`POST /files/:fileId/confirm`**
+  - Marks file upload as completed, creating version 1 in `file_versions`.
+- **`GET /files/:fileId`**
+  - Returns file metadata and logs a `view` audit event.
+- **`GET /files/:fileId/download-url`**
+  - Generates a 15-minute expiring signed download URL and logs a `download` audit event.
+- **`PATCH /files/:fileId`**
+  - Updates filename, folderPath, visibility, tags, summary, or projectId.
+- **`DELETE /files/:fileId`**
+  - Soft-deletes file and logs a `delete` audit event.
+- **`GET /files/:fileId/versions`**
+  - Returns list of historical versions for the file.
+- **`POST /files/:fileId/permissions`**
+  - Grants explicit permissions (`view`, `download`, `edit`, `admin`) to user, role, or department.
+- **`POST /files/:fileId/ocr`**
+  - Triggers or stores extracted OCR text and document summary.

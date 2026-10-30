@@ -81,6 +81,34 @@ export interface StoredFile extends BaseEntity {
   mimeType: string;
   storagePath: string;
   visibility: "public" | "internal" | "restricted";
+  projectId?: EntityId | null;
+  folderPath?: string;
+  isUploadConfirmed?: boolean;
+  tags?: string[];
+  summary?: string | null;
+  ocrStatus?: "none" | "pending" | "processing" | "completed" | "failed";
+  ocrText?: string | null;
+  uploadedByName?: string;
+  downloadUrl?: string;
+}
+
+export interface FileVersion {
+  id: EntityId;
+  fileId: EntityId;
+  versionNumber: number;
+  storagePath: string;
+  byteSize: number;
+  createdBy: EntityId;
+  createdAt: string;
+}
+
+export interface FilePermission {
+  id: EntityId;
+  fileId: EntityId;
+  granteeType: "user" | "role" | "department";
+  granteeId: EntityId;
+  permission: "view" | "download" | "edit" | "admin";
+  createdAt: string;
 }
 
 // 8.3 Work & Collaboration

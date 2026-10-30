@@ -4,7 +4,9 @@ import authRoutes from "./routes/auth";
 import organisationsRoutes from "./routes/organisations";
 import departmentsRoutes from "./routes/departments";
 import employeesRoutes from "./routes/employees";
+import knowledgeRoutes from "./routes/knowledge";
 import employeeDocumentsRoutes from "./routes/employee-documents";
+import filesRoutes from "./routes/files";
 import { aiRouter } from "./routes/ai";
 
 const app = new Hono();
@@ -53,7 +55,9 @@ v1.route("/auth", authRoutes);
 v1.route("/organisations", organisationsRoutes);
 v1.route("/departments", departmentsRoutes);
 v1.route("/employees", employeesRoutes);
+v1.route("/knowledge", knowledgeRoutes);
 v1.route("/employee-documents", employeeDocumentsRoutes);
+v1.route("/files", filesRoutes);
 v1.route("/ai", aiRouter);
 
 app.route("/api/v1", v1);
