@@ -12,9 +12,18 @@ import {
   Clock,
   Check,
   Edit3,
+  X,
+  Eye,
+  Columns,
+  Code,
+  Bold,
+  Italic,
+  List,
+  Quote,
 } from "lucide-react";
 import { api } from "../../services/api";
 import { KnowledgePage } from "../../types";
+import { MarkdownPreview } from "../../components/knowledge/MarkdownPreview";
 
 export default function KnowledgeBasePage() {
   const [pages, setPages] = useState<KnowledgePage[]>([]);
@@ -29,6 +38,40 @@ export default function KnowledgeBasePage() {
   const [newVisibility, setNewVisibility] = useState<"public" | "internal" | "restricted">("internal");
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [editorView, setEditorView] = useState<"split" | "preview" | "editor">("split");
+
+  const handleCancelEdit = () => {
+    if (selectedPage) {
+      setEditTitle(selectedPage.title);
+      setEditContent(selectedPage.content);
+    }
+    setIsEditing(false);
+  };
+
+  const insertFormatting = (prefix: string, suffix: string = "") => {
+    const textarea = document.getElementById("markdown-textarea") as HTMLTextAreaElement | null;
+    if (!textarea) {
+      setEditContent((prev) => prev + prefix + suffix);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.substring(start, end) || "text";
+    const nextContent =
+      textarea.value.substring(0, start) +
+      prefix +
+      selected +
+      suffix +
+      textarea.value.substring(end);
+    setEditContent(nextContent);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + selected.length
+      );
+    }, 10);
+  };
 
   useEffect(() => {
     async function fetchPages() {
@@ -198,17 +241,32 @@ export default function KnowledgeBasePage() {
                   <span>{isSummarizing ? "Synthesizing..." : "AI Key Insights"}</span>
                 </button>
                 {isEditing ? (
-                  <button
-                    onClick={handleSaveEdit}
-                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold transition shadow-xs"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Save Changes</span>
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-[#262626] text-xs font-semibold transition cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#74D96F] hover:bg-[#62CE5C] text-[#262626] text-xs font-bold transition shadow-xs cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
                 ) : (
                   <button
-                    onClick={() => setIsEditing(true)}
-                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-[#262626] text-xs font-semibold transition border border-[#BEBEBE]/40"
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(true);
+                      setEditorView("split");
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#EDEDED] hover:bg-[#E2E2E2] text-[#262626] text-xs font-semibold transition border border-[#BEBEBE]/40 cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit Markdown</span>
@@ -226,14 +284,20 @@ export default function KnowledgeBasePage() {
 
             {/* Document Title */}
             {isEditing ? (
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full text-2xl font-bold bg-[#F8F9FA] border border-[#BEBEBE]/60 rounded-2xl px-4 py-2 text-[#262626] focus:outline-none focus:border-[#74D96F] focus:bg-white"
-              />
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666]">
+                  Document Title
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full text-xl sm:text-2xl font-bold bg-[#F8F9FA] border border-[#BEBEBE]/60 rounded-2xl px-4 py-2.5 text-[#262626] focus:outline-none focus:border-[#74D96F] focus:bg-white transition"
+                  placeholder="Document Title"
+                />
+              </div>
             ) : (
-              <h1 className="text-2xl font-extrabold text-[#262626] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#262626] tracking-tight">
                 {selectedPage.title}
               </h1>
             )}
@@ -250,17 +314,143 @@ export default function KnowledgeBasePage() {
               ))}
             </div>
 
-            {/* Document Body / Markdown Editor */}
+            {/* Document Body / Markdown Editor with Always-Preview */}
             {isEditing ? (
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={16}
-                className="w-full font-mono text-xs leading-relaxed bg-[#F8F9FA] border border-[#BEBEBE]/60 rounded-2xl p-4 text-[#262626] focus:outline-none focus:border-[#74D96F] focus:bg-white"
-              />
+              <div className="flex-1 flex flex-col space-y-3 min-h-0">
+                {/* Editor Sub-toolbar: View controls + Markdown tools */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-[#F8F9FA] border border-[#EDEDED]">
+                  {/* View Modes */}
+                  <div className="flex items-center space-x-1 bg-[#EDEDED] p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setEditorView("split")}
+                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        editorView === "split"
+                          ? "bg-white text-[#262626] shadow-xs"
+                          : "text-[#666666] hover:text-[#262626]"
+                      }`}
+                    >
+                      <Columns className="w-3.5 h-3.5" />
+                      <span>Split (Live Preview)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorView("preview")}
+                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        editorView === "preview"
+                          ? "bg-white text-[#262626] shadow-xs"
+                          : "text-[#666666] hover:text-[#262626]"
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Only</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorView("editor")}
+                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        editorView === "editor"
+                          ? "bg-white text-[#262626] shadow-xs"
+                          : "text-[#666666] hover:text-[#262626]"
+                      }`}
+                    >
+                      <Code className="w-3.5 h-3.5" />
+                      <span>Raw Editor</span>
+                    </button>
+                  </div>
+
+                  {/* Formatting Tool Buttons */}
+                  <div className="flex items-center space-x-1 text-[#666666]">
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("**", "**")}
+                      className="p-1.5 rounded-lg hover:bg-white hover:text-[#262626] transition font-bold text-xs cursor-pointer"
+                      title="Bold (**text**)"
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("*", "*")}
+                      className="p-1.5 rounded-lg hover:bg-white hover:text-[#262626] transition text-xs cursor-pointer"
+                      title="Italic (*text*)"
+                    >
+                      <Italic className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("\n## ", "\n")}
+                      className="px-2 py-1 rounded-lg hover:bg-white hover:text-[#262626] transition font-bold text-xs font-mono cursor-pointer"
+                      title="Heading 2 (## Title)"
+                    >
+                      H2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("\n- ", "")}
+                      className="p-1.5 rounded-lg hover:bg-white hover:text-[#262626] transition text-xs cursor-pointer"
+                      title="Bullet List (- item)"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("\n> ", "\n")}
+                      className="p-1.5 rounded-lg hover:bg-white hover:text-[#262626] transition text-xs cursor-pointer"
+                      title="Blockquote (> quote)"
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting("\n```text\n", "\n```\n")}
+                      className="px-2 py-1 rounded-lg hover:bg-white hover:text-[#262626] transition font-mono text-[11px] font-bold cursor-pointer"
+                      title="Code Block"
+                    >
+                      {"</>"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Split or Full View Grid */}
+                <div
+                  className={`grid gap-4 flex-1 ${
+                    editorView === "split" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+                  }`}
+                >
+                  {(editorView === "split" || editorView === "editor") && (
+                    <div className="flex flex-col">
+                      <div className="text-[11px] font-bold text-[#666666] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Markdown Source</span>
+                        <span className="font-mono text-[10px] text-[#999999]">{editContent.length} chars</span>
+                      </div>
+                      <textarea
+                        id="markdown-textarea"
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={18}
+                        className="w-full flex-1 min-h-[460px] font-mono text-xs leading-relaxed bg-[#F8F9FA] border border-[#BEBEBE]/60 rounded-2xl p-4 text-[#262626] focus:outline-none focus:border-[#74D96F] focus:bg-white transition resize-none"
+                        placeholder="Type your markdown documentation here..."
+                      />
+                    </div>
+                  )}
+
+                  {(editorView === "split" || editorView === "preview") && (
+                    <div className="flex flex-col">
+                      <div className="text-[11px] font-bold text-[#666666] uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#74D96F] animate-pulse" />
+                        <span>Live Markdown Preview</span>
+                      </div>
+                      <div className="w-full flex-1 min-h-[460px] overflow-y-auto bg-white border border-[#EDEDED] rounded-2xl p-6 shadow-xs">
+                        <MarkdownPreview content={editContent} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : (
-              <div className="max-w-none text-[#262626] text-sm leading-relaxed whitespace-pre-wrap font-sans bg-[#F8F9FA] p-6 rounded-2xl border border-[#EDEDED]">
-                {selectedPage.content}
+              <div className="max-w-none text-[#262626] bg-[#FFFFFF] p-6 sm:p-8 rounded-3xl border border-[#EDEDED] shadow-xs">
+                <MarkdownPreview content={selectedPage.content} />
               </div>
             )}
           </div>
